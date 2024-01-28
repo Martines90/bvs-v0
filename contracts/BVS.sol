@@ -5,6 +5,9 @@ pragma solidity ^0.8.9;
 
 // imports
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@thirdweb-dev/contracts/extension/Permissions.sol";
+import "hardhat/console.sol";
+
 import "./PriceConverter.sol";
 
 /**
@@ -14,8 +17,11 @@ import "./PriceConverter.sol";
  * @dev
  */
 
-contract BVS {
-    enum FoundingSizeLevels {
+contract BVS is Permissions {
+    bytes32 public constant SYSTEM_ADMIN = keccak256("SYSTEM_ADMIN");
+    bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
+
+    enum FundingSizeLevels {
         SMALL,
         MEDIUM,
         LARGE,
@@ -23,7 +29,7 @@ contract BVS {
         XXLARGE,
         XXXLARGE
     }
-    struct FoundSizes {
+    struct FundSizes {
         uint256 small;
         uint256 medium;
         uint256 large;
@@ -31,76 +37,86 @@ contract BVS {
         uint256 xxlarge;
         uint256 xxxlarge;
     }
-    struct FounderTicket {
+    struct FunderTicket {
         address account;
-        uint256 foundedAmount;
-        FoundingSizeLevels foundSizeLevel;
+        uint256 fundedAmountInUsd;
+        FundingSizeLevels fundSizeLevel;
         bool exists;
     }
 
-    uint256 public constant USD_CONVERT_RATE = 10 ** 18;
+    uint256 public constant DECIMALS = 10 ** 18;
 
-    FoundSizes foundSizes =
-        FoundSizes(
-            USD_CONVERT_RATE * 100,
-            USD_CONVERT_RATE * 1000,
-            USD_CONVERT_RATE * 10000,
-            USD_CONVERT_RATE * 100000,
-            USD_CONVERT_RATE * 1000000,
-            USD_CONVERT_RATE * 10000000
+    FundSizes fundSizes =
+        FundSizes(
+            DECIMALS * 100,
+            DECIMALS * 1000,
+            DECIMALS * 10000,
+            DECIMALS * 100000,
+            DECIMALS * 1000000,
+            DECIMALS * 10000000
         );
 
     AggregatorV3Interface public immutable priceFeed;
 
-    mapping(address => FounderTicket) public addressToAmountFunded;
+    mapping(address => FunderTicket) public addressToAmountFunded;
     address[] public funders;
 
     constructor(address priceFeedAddress) {
         // 0x694AA1769357215DE4FAC081bf1f309aDC325306
         priceFeed = AggregatorV3Interface(priceFeedAddress);
+
+        _setupRole(SYSTEM_ADMIN, msg.sender);
     }
 
     function fund() public payable {
-        require(
-            PriceConverter.getConversionRate(msg.value, priceFeed) >=
-                foundSizes.small,
-            "You need to spend more ETH!"
-        );
+        uint256 amount = PriceConverter.getConversionRate(msg.value, priceFeed);
+        require(amount >= fundSizes.small, "You need to spend more ETH!");
+
         if (!addressToAmountFunded[msg.sender].exists) {
             funders.push(msg.sender);
-            addressToAmountFunded[msg.sender] = FounderTicket(
+            addressToAmountFunded[msg.sender] = FunderTicket(
                 msg.sender,
-                msg.value,
-                getFoundSizeLevel(msg.value),
+                amount,
+                getfundSizeLevel(amount),
                 true
             );
         } else {
-            addressToAmountFunded[msg.sender].foundedAmount += msg.value;
-            addressToAmountFunded[msg.sender]
-                .foundSizeLevel = getFoundSizeLevel(
-                addressToAmountFunded[msg.sender].foundedAmount
+            addressToAmountFunded[msg.sender].fundedAmountInUsd += amount;
+            addressToAmountFunded[msg.sender].fundSizeLevel = getfundSizeLevel(
+                addressToAmountFunded[msg.sender].fundedAmountInUsd
             );
         }
     }
 
-    function getFoundSizeLevel(
+    function unlockTenderBudget() public onlyRole(SYSTEM_ADMIN) {
+        (bool callSuccess, ) = payable(msg.sender).call{
+            value: address(this).balance
+        }("");
+        require(callSuccess, "Unlock tender budget failed");
+    }
+
+    function getfundSizeLevel(
         uint256 amount
-    ) public view returns (FoundingSizeLevels) {
-        if (amount >= foundSizes.xxxlarge) {
-            return FoundingSizeLevels.XXXLARGE;
+    ) public view returns (FundingSizeLevels) {
+        if (amount >= fundSizes.xxxlarge) {
+            return FundingSizeLevels.XXXLARGE;
         }
-        if (amount >= foundSizes.xxlarge) {
-            return FoundingSizeLevels.XXLARGE;
+        if (amount >= fundSizes.xxlarge) {
+            return FundingSizeLevels.XXLARGE;
         }
-        if (amount >= foundSizes.xlarge) {
-            return FoundingSizeLevels.XLARGE;
+        if (amount >= fundSizes.xlarge) {
+            return FundingSizeLevels.XLARGE;
         }
-        if (amount >= foundSizes.large) {
-            return FoundingSizeLevels.LARGE;
+        if (amount >= fundSizes.large) {
+            return FundingSizeLevels.LARGE;
         }
-        if (amount >= foundSizes.medium) {
-            return FoundingSizeLevels.MEDIUM;
+        if (amount >= fundSizes.medium) {
+            return FundingSizeLevels.MEDIUM;
         }
-        return FoundingSizeLevels.SMALL;
+        return FundingSizeLevels.SMALL;
+    }
+
+    function getNumberOfFunders() public view returns (uint256) {
+        return funders.length;
     }
 }
