@@ -78,15 +78,34 @@ describe("BVS", () => {
 
         it("should only update funder's ticket when funder sends found again", async () => {
             await bvs.fund({ value: sendValuesInEth.small});
+
+            const repsonse1 = await bvs.addressToAmountFunded(deployer.address);
+
+            assert.equal(repsonse1.fundSizeLevel, BigInt(FundingSizeLevels.SMALL))
+
+            // send more found with the same account
             await bvs.fund({ value: sendValuesInEth.medium});
 
-            const repsonse = await bvs.addressToAmountFunded(deployer.address);
+            const repsonse2 = await bvs.addressToAmountFunded(deployer.address);
 
-            assert.equal(repsonse.fundedAmountInUsd, valuesInUsd.small + valuesInUsd.medium)
-            assert.equal(repsonse.fundSizeLevel, BigInt(FundingSizeLevels.MEDIUM))
+            assert.equal(repsonse2.fundedAmountInUsd, valuesInUsd.small + valuesInUsd.medium)
+            assert.equal(repsonse2.fundSizeLevel, BigInt(FundingSizeLevels.MEDIUM))
 
             assert.equal(await bvs.getNumberOfFunders(), BigInt(1));
         })
+
+        it("should provide more tickets for more users", async () => {
+            const bvsAccount1 = await bvs.connect(accounts[1]);
+            await bvsAccount1.fund({ value: sendValuesInEth.medium});
+
+            await bvs.fund({ value: sendValuesInEth.large});
+
+            const repsonse1 = await bvs.addressToAmountFunded(deployer.address);
+            const repsonse2 = await bvs.addressToAmountFunded(accounts[1].address);
+            
+            assert.equal(repsonse1.fundSizeLevel, BigInt(FundingSizeLevels.LARGE));
+            assert.equal(repsonse2.fundSizeLevel, BigInt(FundingSizeLevels.MEDIUM));
+        });
     })
 
     describe("getfundSizeLevel", () => {
@@ -114,18 +133,15 @@ describe("BVS", () => {
         })
 
         it("should forbid to unlock tender budget money for unauthorized account", async () => {
-            await bvs.connect(accounts[1]);
+            const bvsAccount1 = await bvs.connect(accounts[1]);
 
-            expect(await bvs.unlockTenderBudget()).to.be.reverted;
+            await expect(bvsAccount1.unlockTenderBudget()).to.be.reverted;
         })
 
         it("should unlock tender budget money", async () => {
             // add found from another account
-            await bvs.connect(accounts[1])
-            await bvs.fund({ value: sendValuesInEth.medium })
-
-            // switch back to deployer
-            await bvs.connect(deployer)
+            const bvsAccount1 = await bvs.connect(accounts[1])
+            await bvsAccount1.fund({ value: sendValuesInEth.medium })
 
             const bvsAddress = await bvs.getAddress();
             const provider = bvs.runner?.provider;

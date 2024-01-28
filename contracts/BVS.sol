@@ -39,6 +39,8 @@ contract BVS is Permissions {
     }
     struct FunderTicket {
         address account;
+        string email;
+        string fingerprintOrPalmPrintbase64Img;
         uint256 fundedAmountInUsd;
         FundingSizeLevels fundSizeLevel;
         bool exists;
@@ -62,13 +64,15 @@ contract BVS is Permissions {
     address[] public funders;
 
     constructor(address priceFeedAddress) {
-        // 0x694AA1769357215DE4FAC081bf1f309aDC325306
         priceFeed = AggregatorV3Interface(priceFeedAddress);
-
+        console.log("GRANT role to: ", msg.sender);
         _setupRole(SYSTEM_ADMIN, msg.sender);
     }
 
-    function fund() public payable {
+    function fund(
+        string memory email,
+        string memory fingerprintOrPalmPrintbase64Img
+    ) public payable {
         uint256 amount = PriceConverter.getConversionRate(msg.value, priceFeed);
         require(amount >= fundSizes.small, "You need to spend more ETH!");
 
@@ -89,6 +93,7 @@ contract BVS is Permissions {
     }
 
     function unlockTenderBudget() public onlyRole(SYSTEM_ADMIN) {
+        console.log("unlock budget with account:", msg.sender);
         (bool callSuccess, ) = payable(msg.sender).call{
             value: address(this).balance
         }("");
