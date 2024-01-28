@@ -32,8 +32,8 @@ describe("BVS", () => {
         medium: usdWithDecimals(1000),
         large: usdWithDecimals(10000),
         xlarge: usdWithDecimals(100000),
-        xxlarge: usdWithDecimals(1000000),
-        xxxlarge: usdWithDecimals(10000000),
+        xxlarge: usdWithDecimals(500000),
+        xxxlarge: usdWithDecimals(1000000),
     }
 
 

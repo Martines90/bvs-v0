@@ -53,8 +53,8 @@ contract BVS is Permissions {
             DECIMALS * 1000,
             DECIMALS * 10000,
             DECIMALS * 100000,
-            DECIMALS * 1000000,
-            DECIMALS * 10000000
+            DECIMALS * 500000,
+            DECIMALS * 1000000
         );
 
     AggregatorV3Interface public immutable priceFeed;
