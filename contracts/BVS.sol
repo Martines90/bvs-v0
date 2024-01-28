@@ -39,7 +39,6 @@ contract BVS is Permissions {
     }
     struct FunderTicket {
         address account;
-        string email;
         string fingerprintOrPalmPrintbase64Img;
         uint256 fundedAmountInUsd;
         FundingSizeLevels fundSizeLevel;
@@ -65,12 +64,11 @@ contract BVS is Permissions {
 
     constructor(address priceFeedAddress) {
         priceFeed = AggregatorV3Interface(priceFeedAddress);
-        console.log("GRANT role to: ", msg.sender);
+
         _setupRole(SYSTEM_ADMIN, msg.sender);
     }
 
     function fund(
-        string memory email,
         string memory fingerprintOrPalmPrintbase64Img
     ) public payable {
         uint256 amount = PriceConverter.getConversionRate(msg.value, priceFeed);
@@ -80,6 +78,7 @@ contract BVS is Permissions {
             funders.push(msg.sender);
             addressToAmountFunded[msg.sender] = FunderTicket(
                 msg.sender,
+                fingerprintOrPalmPrintbase64Img,
                 amount,
                 getfundSizeLevel(amount),
                 true
@@ -93,7 +92,6 @@ contract BVS is Permissions {
     }
 
     function unlockTenderBudget() public onlyRole(SYSTEM_ADMIN) {
-        console.log("unlock budget with account:", msg.sender);
         (bool callSuccess, ) = payable(msg.sender).call{
             value: address(this).balance
         }("");

@@ -61,10 +61,10 @@ describe("BVS", () => {
 
     describe("fund", () => {
         it("should revert fund if the sent ETH below the minimum amount", async () => {
-            await expect(bvs.fund({ value: sendValuesInEth.small - BigInt(1) })).to.be.revertedWith("You need to spend more ETH!");
+            await expect(bvs.fund("fingerprint", { value: sendValuesInEth.small - BigInt(1) })).to.be.revertedWith("You need to spend more ETH!");
         });
         it("should add a new funder and create a founder ticket when minimum amount payed", async () => {
-            await bvs.fund({ value: sendValuesInEth.small});
+            await bvs.fund("fingerprint", { value: sendValuesInEth.small});
 
             const repsonse = await bvs.addressToAmountFunded(deployer.address);
 
@@ -77,14 +77,14 @@ describe("BVS", () => {
         })
 
         it("should only update funder's ticket when funder sends found again", async () => {
-            await bvs.fund({ value: sendValuesInEth.small});
+            await bvs.fund("fingerprint", { value: sendValuesInEth.small});
 
             const repsonse1 = await bvs.addressToAmountFunded(deployer.address);
 
             assert.equal(repsonse1.fundSizeLevel, BigInt(FundingSizeLevels.SMALL))
 
             // send more found with the same account
-            await bvs.fund({ value: sendValuesInEth.medium});
+            await bvs.fund("fingerprint", { value: sendValuesInEth.medium});
 
             const repsonse2 = await bvs.addressToAmountFunded(deployer.address);
 
@@ -96,9 +96,9 @@ describe("BVS", () => {
 
         it("should provide more tickets for more users", async () => {
             const bvsAccount1 = await bvs.connect(accounts[1]);
-            await bvsAccount1.fund({ value: sendValuesInEth.medium});
+            await bvsAccount1.fund("fingerprint", { value: sendValuesInEth.medium});
 
-            await bvs.fund({ value: sendValuesInEth.large});
+            await bvs.fund("fingerprint", { value: sendValuesInEth.large});
 
             const repsonse1 = await bvs.addressToAmountFunded(deployer.address);
             const repsonse2 = await bvs.addressToAmountFunded(accounts[1].address);
@@ -129,7 +129,7 @@ describe("BVS", () => {
 
     describe("unlockTenderBudget", () => {
         beforeEach(async () => {
-            await bvs.fund({ value: sendValuesInEth.small});
+            await bvs.fund("fingerprint", { value: sendValuesInEth.small});
         })
 
         it("should forbid to unlock tender budget money for unauthorized account", async () => {
@@ -141,7 +141,7 @@ describe("BVS", () => {
         it("should unlock tender budget money", async () => {
             // add found from another account
             const bvsAccount1 = await bvs.connect(accounts[1])
-            await bvsAccount1.fund({ value: sendValuesInEth.medium })
+            await bvsAccount1.fund("fingerprint", { value: sendValuesInEth.medium })
 
             const bvsAddress = await bvs.getAddress();
             const provider = bvs.runner?.provider;
