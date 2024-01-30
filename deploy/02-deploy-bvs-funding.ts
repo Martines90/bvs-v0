@@ -3,7 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { developmentChains, networkConfig } from "../helper-hardhat-config";
 import verify from "../utils/verify";
 
-const bvs = async function (hre: HardhatRuntimeEnvironment) {
+const bvsFunding = async function (hre: HardhatRuntimeEnvironment) {
     const { getNamedAccounts, deployments} = hre;
     const { deploy, log } = deployments;
     const { deployer } = await getNamedAccounts();
@@ -26,24 +26,24 @@ const bvs = async function (hre: HardhatRuntimeEnvironment) {
     log('deploy in progress...')
     log('price feed address:', ethUsdPriceFeedAddress)
 
-    const bvs = await deploy("BVS", {
+    const bvsFunding = await deploy("BVS_Funding", {
       from: deployer,
         args: [
-            ethUsdPriceFeedAddress,
+            ethUsdPriceFeedAddress
         ],
         log: true,
         waitConfirmations: waitBlockConfirmations,
     })
 
-    log(`BVS deployed at ${bvs.address}`)
+    log(`BVS_Funding deployed at ${bvsFunding.address}`)
   if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(bvs.address, [ethUsdPriceFeedAddress])
+    await verify(bvsFunding.address, [ethUsdPriceFeedAddress])
   }
 
 }
 
-export default bvs
-bvs.tags = ["all", "bvs"]
+export default bvsFunding
+bvsFunding.tags = ["all", "bvsFunding"]
