@@ -5,7 +5,6 @@ pragma solidity ^0.8.9;
 
 // imports
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "@thirdweb-dev/contracts/extension/Permissions.sol";
 import "hardhat/console.sol";
 
 import "./PriceConverter.sol";
@@ -17,7 +16,7 @@ import "./PriceConverter.sol";
  * @dev
  */
 
-contract BVS_Funding is Permissions {
+contract BVS_Funding {
     enum FundingSizeLevels {
         SMALL,
         MEDIUM,
