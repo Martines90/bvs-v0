@@ -18,7 +18,7 @@ import "./BVS_Funding.sol";
 contract BVS is Permissions, BVS_Funding {
     bytes32 public constant SYSTEM_ADMIN = keccak256("SYSTEM_ADMIN");
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
-    bytes32 public constant VOTER = keccak256("VOTER");
+    bytes32 public constant CITIZEN = keccak256("CITIZEN");
 
     uint256 constant ELECTION_START_END_INTERVAL = 30 days;
     uint256 constant MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES = 10;
@@ -28,7 +28,7 @@ contract BVS is Permissions, BVS_Funding {
 
     address[] public admins;
     address[] public politicalActors;
-    address[] public voters;
+    address[] public citizens;
 
     uint256 public preElectionsStartDate;
     uint256 public preElectionsEndDate;
@@ -45,8 +45,10 @@ contract BVS is Permissions, BVS_Funding {
 
     constructor(address priceFeed) BVS_Funding(priceFeed) {
         admins.push(msg.sender);
+        citizens.push(msg.sender);
 
         _setupRole(SYSTEM_ADMIN, msg.sender);
+        _setupRole(CITIZEN, msg.sender);
     }
 
     function scheduleNextElections(
@@ -158,11 +160,18 @@ contract BVS is Permissions, BVS_Funding {
     function grantSystemAdminRole(
         address account
     ) public onlyRole(SYSTEM_ADMIN) {
+        require(
+            !hasRole(SYSTEM_ADMIN, account),
+            "Admin role to this address alredy granted"
+        );
+        admins.push(account);
         _setupRole(SYSTEM_ADMIN, account);
     }
 
-    function registerVoter(address voterAddress) public onlyRole(SYSTEM_ADMIN) {
-        voters.push(voterAddress);
-        _setupRole(VOTER, voterAddress);
+    function registerCitizen(
+        address citizenAddress
+    ) public onlyRole(SYSTEM_ADMIN) {
+        citizens.push(citizenAddress);
+        _setupRole(CITIZEN, citizenAddress);
     }
 }
