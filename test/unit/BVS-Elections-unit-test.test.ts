@@ -213,7 +213,7 @@ describe("BVS_Elections", () => {
             
             // register citizens
             citizenAccounts.forEach(async (account) => {
-                await bvsElectionsAccount0.registerCitizen(account);
+                await bvsElectionsAccount0.grantCitizenRole(account);
             })
         })
     })

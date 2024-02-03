@@ -138,16 +138,4 @@ contract BVS_Elections is BVS_Roles {
 
         electionsStartDate = 0;
     }
-
-    function registerAdmin(
-        address adminAddress
-    ) public onlyRole(ADMINISTRATOR) {
-        grantAdministratorRole(adminAddress);
-    }
-
-    function registerCitizen(
-        address citizenAddress
-    ) public onlyRole(ADMINISTRATOR) {
-        grantCitizenRole(citizenAddress);
-    }
 }
