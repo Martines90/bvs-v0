@@ -14,7 +14,6 @@ describe("BVS_Elections", () => {
     let bvsElections: BVS_Elections;
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
-    let adminRole: string;
 
     const mockNextElectionsConfig = {
         preElectionStartDate: _now + TimeQuantities.MONTH + TimeQuantities.DAY,
@@ -197,74 +196,6 @@ describe("BVS_Elections", () => {
             assert.equal(await bvsElectionsAccount0.electionsStartDate(), BigInt(0));
         })
     });
-
-    describe('registerAdmin', () => {
-        let bvsElectionsAccount0: BVS_Elections;
-
-        beforeEach(async () => {
-            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
-        })
-
-        it("should revert when account don't have ADMINISTRATOR role", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-
-            await expect(
-                bvsElectionsAccount1.registerAdmin(accounts[2])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
-        });
-
-        it("should not revert when account has ADMINISTRATOR role", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
-
-            await expect(
-                bvsElectionsAccount1.registerAdmin(accounts[2])
-            ).not.to.be.reverted
-
-            assert.equal((await bvsElectionsAccount0.getAdminsSize()), BigInt(2));
-        });
-
-        it("should revert when account already registered", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
-
-            await bvsElectionsAccount1.registerAdmin(accounts[2])
-
-            await expect(bvsElectionsAccount1.registerAdmin(accounts[2])).to.be.revertedWith('Admin role to this address already granted');
-        });
-    })
-
-    describe('registerCitizen', () => {
-        let bvsElectionsAccount0: BVS_Elections;
-
-        beforeEach(async () => {
-            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
-        })
-
-        it("should revert when account don't have ADMINISTRATOR role", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-
-            await expect(
-                bvsElectionsAccount1.registerCitizen(accounts[2])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
-        });
-
-        it("should not revert when account has ADMINISTRATOR role", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
-
-            await expect(
-                bvsElectionsAccount1.registerCitizen(accounts[2])
-            ).not.to.be.reverted
-
-            assert.equal((await bvsElectionsAccount0.getCitizensSize()), BigInt(2));
-        });
-
-        it("should revert when account already registered", async () => {
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
-
-            await bvsElectionsAccount1.registerCitizen(accounts[2])
-
-            await expect(bvsElectionsAccount1.registerCitizen(accounts[2])).to.be.revertedWith('Citizen role to this address already granted');
-        });
-    })
 
     describe('Simulate elections', () => {
         let bvsElectionsAccount0: BVS_Elections;
