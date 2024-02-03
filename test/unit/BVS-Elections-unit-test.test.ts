@@ -2,7 +2,7 @@ import { deployments, ethers } from 'hardhat';
 
 import { BVS_Elections } from '../../typechain-types';
 import { assert, expect } from 'chai';
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Roles, TimeQuantities, getPermissionDenyReasonMessage } from '../../utils/helpers';
@@ -77,7 +77,7 @@ describe("BVS_Elections", () => {
             await expect(callScheduleNextElections(bvsElectionsAccount, {
                 ...mockNextElectionsConfig,
                 preElectionStartDate: _now + TimeQuantities.MONTH - TimeQuantities.DAY,
-            })).to.be.reverted; //With('Next election start date has to be at least 30 days planned ahead from now');
+            })).to.be.revertedWith('Next election start date has to be at least 30 days planned ahead from now');
         })
 
         it("should allow schedule new election when last election get closed", async () => {
@@ -103,7 +103,8 @@ describe("BVS_Elections", () => {
     })
 
     describe("closePreElections", () => {
-        let bvsElectionsAccount0;
+        let bvsElectionsAccount0: BVS_Elections;
+
         beforeEach(async () => {
             bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
 
@@ -117,5 +118,172 @@ describe("BVS_Elections", () => {
                 bvsElectionsAccount1.closePreElections()
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
+
+        it("should revert when pre elections end date is not yet passed by 1 week", async () => {
+            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY);
+
+            await expect(bvsElectionsAccount0.closePreElections()).to.be.revertedWith('Pre elections can only close after 7 days of its end');
+        });
+
+        it("should close pre elections when pre elections end date passed by more than 1 week", async () => {
+            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await expect(bvsElectionsAccount0.closePreElections()).not.to.be.reverted;
+
+            
+            assert.equal((await bvsElectionsAccount0.preElectionCandidates).length, 0);
+            assert.equal((await bvsElectionsAccount0.preElectionVoters).length, 0);
+
+            assert.equal(await bvsElectionsAccount0.preElectionsStartDate(), BigInt(0));
+            assert.equal(await bvsElectionsAccount0.preElectionsEndDate(), BigInt(0));
+        });
     });
+
+    describe("closeElections", () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsElectionsAccount0);
+
+            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+        })
+
+        it("should revert when account don't have ADMINISTRATOR role", async () => {
+            await bvsElectionsAccount0.closePreElections();
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await expect(
+                bvsElectionsAccount1.closeElections()
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+        });
+
+        it("should revert when pre elections not yet closed", async () => {
+            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
+
+            await expect(bvsElectionsAccount0.closeElections()).to.be.revertedWith('Pre elections has to be close first');
+        });
+
+        it("should revert when elections are already closed", async () => {
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
+
+            await bvsElectionsAccount0.closeElections();
+
+            await expect(bvsElectionsAccount0.closeElections()).to.be.revertedWith('Elections already closed or not yet planned');
+        });
+
+        it("should revert when elections end date is not yet passed by 1 week", async () => {
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY);
+
+            await expect(bvsElectionsAccount0.closeElections()).to.be.revertedWith('Elections can only close after 7 days of its end');
+        });
+
+        it("should close elections", async () => {
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await expect(bvsElectionsAccount0.closeElections()).not.to.be.reverted;
+
+            assert.equal((await bvsElectionsAccount0.electionCandidates).length, 0);
+            assert.equal((await bvsElectionsAccount0.electionVotes).length, 0);
+
+            assert.equal(await bvsElectionsAccount0.electionsStartDate(), BigInt(0));
+        })
+    });
+
+    describe('registerAdmin', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+        })
+
+        it("should revert when account don't have ADMINISTRATOR role", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await expect(
+                bvsElectionsAccount1.registerAdmin(accounts[2])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+        });
+
+        it("should not revert when account has ADMINISTRATOR role", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
+
+            await expect(
+                bvsElectionsAccount1.registerAdmin(accounts[2])
+            ).not.to.be.reverted
+
+            assert.equal((await bvsElectionsAccount0.getAdminsSize()), BigInt(2));
+        });
+
+        it("should revert when account already registered", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
+
+            await bvsElectionsAccount1.registerAdmin(accounts[2])
+
+            await expect(bvsElectionsAccount1.registerAdmin(accounts[2])).to.be.revertedWith('Admin role to this address already granted');
+        });
+    })
+
+    describe('registerCitizen', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+        })
+
+        it("should revert when account don't have ADMINISTRATOR role", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await expect(
+                bvsElectionsAccount1.registerCitizen(accounts[2])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+        });
+
+        it("should not revert when account has ADMINISTRATOR role", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
+
+            await expect(
+                bvsElectionsAccount1.registerCitizen(accounts[2])
+            ).not.to.be.reverted
+
+            assert.equal((await bvsElectionsAccount0.getCitizensSize()), BigInt(2));
+        });
+
+        it("should revert when account already registered", async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[0]);
+
+            await bvsElectionsAccount1.registerCitizen(accounts[2])
+
+            await expect(bvsElectionsAccount1.registerCitizen(accounts[2])).to.be.revertedWith('Citizen role to this address already granted');
+        });
+    })
+
+    describe('Simulate elections', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+        let citizenAccounts: HardhatEthersSigner[] = [];
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsElectionsAccount0);
+
+            // store citizens
+            for(let i = 1; i < accounts.length;i++) {
+                citizenAccounts.push(accounts[i]);
+            }
+            
+            // register citizens
+            citizenAccounts.forEach(async (account) => {
+                await bvsElectionsAccount0.registerCitizen(account);
+            })
+        })
+    })
 })

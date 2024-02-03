@@ -6,6 +6,8 @@ pragma solidity ^0.8.9;
 // imports
 import "@thirdweb-dev/contracts/extension/Permissions.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Balanced Voting System:Roles - contract
  * @author Márton Sándor Horváth, email: hmartonsandor{@}gmail.com
@@ -47,7 +49,7 @@ contract BVS_Roles is Permissions {
     ) public onlyRole(ADMINISTRATOR) {
         require(
             !hasRole(ADMINISTRATOR, account),
-            "Admin role to this address alredy granted"
+            "Admin role to this address already granted"
         );
         _setupRole(ADMINISTRATOR, account);
         admins.push(account);
@@ -56,9 +58,21 @@ contract BVS_Roles is Permissions {
     function grantCitizenRole(address account) public onlyRole(ADMINISTRATOR) {
         require(
             !hasRole(CITIZEN, account),
-            "Citizen role to this address alredy granted"
+            "Citizen role to this address already granted"
         );
         _setupRole(CITIZEN, account);
         citizens.push(account);
+    }
+
+    function getAdminsSize() public view returns (uint256) {
+        return admins.length;
+    }
+
+    function getCitizensSize() public view returns (uint256) {
+        return citizens.length;
+    }
+
+    function getPoliticalActorsSize() public view returns (uint256) {
+        return politicalActors.length;
     }
 }

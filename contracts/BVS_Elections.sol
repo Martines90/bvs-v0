@@ -66,7 +66,7 @@ contract BVS_Elections is BVS_Roles {
     function closePreElections() public onlyRole(ADMINISTRATOR) {
         require(
             preElectionsEndDate + 7 days < block.timestamp,
-            "Pre elections can only close after 7 days of their end"
+            "Pre elections can only close after 7 days of its end"
         );
 
         // process data
@@ -102,12 +102,12 @@ contract BVS_Elections is BVS_Roles {
             "Pre elections has to be close first"
         );
         require(
-            electionsEndDate != 0,
+            electionsStartDate != 0,
             "Elections already closed or not yet planned"
         );
         require(
             electionsEndDate + 7 days < block.timestamp,
-            "Elections can only close after 7 days of their end"
+            "Elections can only close after 7 days of its end"
         );
 
         // revoke POLITICAL_ACTOR role from the previous cycle political actors
