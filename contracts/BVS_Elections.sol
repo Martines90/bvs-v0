@@ -24,13 +24,19 @@ contract BVS_Elections is BVS_Roles {
 
     uint256 constant MAXIMUM_NUMBER_OF_PRE_ELECTION_VOTES = 3;
 
+    struct PreElectionVote {
+        address citizenAddress;
+        uint16 voteCount;
+    }
+
     uint256 public preElectionsStartDate;
     uint256 public preElectionsEndDate;
     uint256 public electionsStartDate;
     uint256 public electionsEndDate;
 
     address[] public preElectionCandidates;
-    address[] public preElectionVoters;
+    uint256 public preElectionVotersCount;
+    mapping(address => PreElectionVote) public preElectionVotes;
     mapping(address => uint32) public preElectionCandidateScores;
 
     address[] public electionCandidates;
@@ -70,8 +76,9 @@ contract BVS_Elections is BVS_Roles {
         );
 
         // process data
-        uint256 totalVoters = preElectionVoters.length / 100;
-        for (uint i = 0; i < preElectionCandidates.length; i++) {
+        uint256 totalVoters = preElectionVotersCount / 100;
+        uint256 numOfPreElectionCandidates = preElectionCandidates.length;
+        for (uint i = 0; i < numOfPreElectionCandidates; i++) {
             uint256 voterSupportPercentage = preElectionCandidateScores[
                 preElectionCandidates[i]
             ] / totalVoters;
@@ -91,7 +98,7 @@ contract BVS_Elections is BVS_Roles {
         }
 
         preElectionCandidates = new address[](0);
-        preElectionVoters = new address[](0);
+        preElectionVotersCount = 0;
         preElectionsStartDate = 0;
         preElectionsEndDate = 0;
     }
@@ -137,5 +144,66 @@ contract BVS_Elections is BVS_Roles {
         electionVotes = new address[](0);
 
         electionsStartDate = 0;
+    }
+
+    function registerAsPreElectionCandidate() public payable onlyRole(CITIZEN) {
+        require(
+            preElectionsStartDate > 0,
+            "Pre elections not scheduled or already closed"
+        );
+        require(
+            preElectionsStartDate > block.timestamp,
+            "Pre elections is already in progress"
+        );
+        require(
+            preElectionCandidateScores[msg.sender] == 0,
+            "You are already registered as a candidate"
+        );
+
+        preElectionCandidates.push(msg.sender);
+        preElectionCandidateScores[msg.sender] = 1;
+    }
+
+    function voteOnPreElections(
+        address voteOnAddress
+    ) public onlyRole(CITIZEN) {
+        require(
+            block.timestamp > preElectionsStartDate &&
+                preElectionsStartDate != 0,
+            "Pre elections not yet started"
+        );
+        require(
+            block.timestamp < preElectionsEndDate,
+            "Pre elections already closed"
+        );
+        require(
+            preElectionVotes[msg.sender].voteCount != 3,
+            "You already used your 3 vote credit on the pre elections"
+        );
+
+        require(
+            preElectionCandidateScores[voteOnAddress] > 0,
+            "Under the provided address there is no registered pre election candidate"
+        );
+
+        if (preElectionVotes[msg.sender].voteCount == 0) {
+            preElectionVotersCount += 1;
+            preElectionVotes[msg.sender] = PreElectionVote({
+                citizenAddress: msg.sender,
+                voteCount: 1
+            });
+        } else {
+            preElectionVotes[msg.sender].voteCount += 1;
+        }
+
+        preElectionCandidateScores[voteOnAddress] += 1;
+    }
+
+    function getPreElectionCandidatesSize() public view returns (uint256) {
+        return preElectionCandidates.length;
+    }
+
+    function getElectionCandidatesSize() public view returns (uint256) {
+        return electionCandidates.length;
     }
 }

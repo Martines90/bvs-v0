@@ -16,7 +16,7 @@ describe("BVS_Elections", () => {
     let accounts: SignerWithAddress[];
 
     const mockNextElectionsConfig = {
-        preElectionStartDate: _now + TimeQuantities.MONTH + TimeQuantities.DAY,
+        preElectionsStartDate: _now + TimeQuantities.MONTH + TimeQuantities.DAY,
         preElectionsEndDate: _now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
         electionsStartDate: _now + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
         electionsEndDate: _now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
@@ -35,7 +35,7 @@ describe("BVS_Elections", () => {
 
     const callScheduleNextElections = (connectedAccount: BVS_Elections, mockInput?: any) => {
         return connectedAccount.scheduleNextElections(
-            (mockInput || mockNextElectionsConfig).preElectionStartDate,
+            (mockInput || mockNextElectionsConfig).preElectionsStartDate,
             (mockInput || mockNextElectionsConfig).preElectionsEndDate,
             (mockInput || mockNextElectionsConfig).electionsStartDate,
             (mockInput || mockNextElectionsConfig).electionsEndDate
@@ -56,7 +56,7 @@ describe("BVS_Elections", () => {
 
             await callScheduleNextElections(bvsElectionsAccount);
 
-            assert.equal(await bvsElectionsAccount.preElectionsStartDate(), BigInt(mockNextElectionsConfig.preElectionStartDate));
+            assert.equal(await bvsElectionsAccount.preElectionsStartDate(), BigInt(mockNextElectionsConfig.preElectionsStartDate));
             assert.equal(await bvsElectionsAccount.preElectionsEndDate(), BigInt(mockNextElectionsConfig.preElectionsEndDate));
             assert.equal(await bvsElectionsAccount.electionsStartDate(), BigInt(mockNextElectionsConfig.electionsStartDate));
             assert.equal(await bvsElectionsAccount.electionsEndDate(), BigInt(mockNextElectionsConfig.electionsEndDate));
@@ -75,7 +75,7 @@ describe("BVS_Elections", () => {
 
             await expect(callScheduleNextElections(bvsElectionsAccount, {
                 ...mockNextElectionsConfig,
-                preElectionStartDate: _now + TimeQuantities.MONTH - TimeQuantities.DAY,
+                preElectionsStartDate: _now + TimeQuantities.MONTH - TimeQuantities.DAY,
             })).to.be.revertedWith('Next election start date has to be at least 30 days planned ahead from now');
         })
 
@@ -93,7 +93,7 @@ describe("BVS_Elections", () => {
             await time.increaseTo(timePassPhase1 + TimeQuantities.MONTH);
 
             await expect(callScheduleNextElections(bvsElectionsAccount, {
-                preElectionStartDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
+                preElectionsStartDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
                 preElectionsEndDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
                 electionsStartDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
                 electionsEndDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
@@ -131,7 +131,7 @@ describe("BVS_Elections", () => {
 
             
             assert.equal((await bvsElectionsAccount0.preElectionCandidates).length, 0);
-            assert.equal((await bvsElectionsAccount0.preElectionVoters).length, 0);
+            assert.equal((await bvsElectionsAccount0.preElectionVotersCount()), BigInt(0));
 
             assert.equal(await bvsElectionsAccount0.preElectionsStartDate(), BigInt(0));
             assert.equal(await bvsElectionsAccount0.preElectionsEndDate(), BigInt(0));
@@ -190,12 +190,125 @@ describe("BVS_Elections", () => {
 
             await expect(bvsElectionsAccount0.closeElections()).not.to.be.reverted;
 
-            assert.equal((await bvsElectionsAccount0.electionCandidates).length, 0);
+            assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(0));
             assert.equal((await bvsElectionsAccount0.electionVotes).length, 0);
 
             assert.equal(await bvsElectionsAccount0.electionsStartDate(), BigInt(0));
         })
     });
+
+    describe('registerAsPreElectionCandidate', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+        })
+
+        it('should revert when non citizen calls', async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await expect(
+                bvsElectionsAccount1.registerAsPreElectionCandidate()
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.CITIZEN));
+        })
+
+        it('should revert when there is no ongoing pre elections', async () => {
+            await expect(
+                bvsElectionsAccount0.registerAsPreElectionCandidate()
+            ).to.be.revertedWith('Pre elections not scheduled or already closed');
+        })
+
+        it('should revert when pre elections is already in progress', async () => {
+            await callScheduleNextElections(bvsElectionsAccount0);
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate);
+
+            await expect(
+                bvsElectionsAccount0.registerAsPreElectionCandidate()
+            ).to.be.revertedWith('Pre elections is already in progress');
+        })
+
+        it('should revert when candidate already registered', async () => {
+            await callScheduleNextElections(bvsElectionsAccount0);
+
+            await bvsElectionsAccount0.registerAsPreElectionCandidate()
+
+            await expect(
+                bvsElectionsAccount0.registerAsPreElectionCandidate()
+            ).to.be.revertedWith('You are already registered as a candidate');
+        })
+
+        it('should register citizen as a pre election candidate', async () => {
+            await callScheduleNextElections(bvsElectionsAccount0);
+
+            await expect(
+                bvsElectionsAccount0.registerAsPreElectionCandidate()
+            ).not.to.be.reverted
+
+            assert.equal((await bvsElectionsAccount0.getPreElectionCandidatesSize()), BigInt(1));
+            assert.equal(await bvsElectionsAccount0.preElectionCandidateScores(accounts[0]), BigInt(1));
+        })
+    });
+
+    describe('voteOnPreElections', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsElectionsAccount0);
+        })
+
+        it('should revert when non citizen calls', async () => {
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await expect(
+                bvsElectionsAccount1.voteOnPreElections(accounts[2])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.CITIZEN));
+        })
+
+        it('should revert when pre elections already closed', async () => {
+            await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate);
+
+            await expect(
+            bvsElectionsAccount1.voteOnPreElections(accounts[2])
+            ).to.be.revertedWith('Pre elections already closed')
+        })
+
+        it('should revert citizen voted 3 times', async () => {
+            await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[2]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[3]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[4]);
+
+            await bvsElectionsAccount0.registerAsPreElectionCandidate();
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+
+            const bvsElectionsAccount2 = await bvsElections.connect(accounts[2]);
+            await bvsElectionsAccount2.registerAsPreElectionCandidate();
+
+            const bvsElectionsAccount3 = await bvsElections.connect(accounts[3]);
+            await bvsElectionsAccount3.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            const bvsElectionsAccount4 = await bvsElections.connect(accounts[4]);
+
+            await bvsElectionsAccount4.voteOnPreElections(accounts[0]);
+            await bvsElectionsAccount4.voteOnPreElections(accounts[1]);
+            await bvsElectionsAccount4.voteOnPreElections(accounts[2]);
+
+            await expect(
+                bvsElectionsAccount4.voteOnPreElections(accounts[1])
+            ).to.be.revertedWith('You already used your 3 vote credit on the pre elections')
+        })
+    })
 
     describe('Simulate elections', () => {
         let bvsElectionsAccount0: BVS_Elections;
