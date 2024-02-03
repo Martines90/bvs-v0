@@ -8,6 +8,8 @@ import "@thirdweb-dev/contracts/extension/Permissions.sol";
 
 import "./BVS_Roles.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Balanced Voting System: Elections contract
  * @author Márton Sándor Horváth, email: hmartonsandor{@}gmail.com
@@ -43,14 +45,16 @@ contract BVS_Elections is BVS_Roles {
         uint256 _electionsStartDate,
         uint256 _electionsEndDate
     ) public onlyRole(ADMINISTRATOR) {
+        console.log(
+            "_preElectionsStartDate:",
+            _preElectionsStartDate,
+            "block.timestamp:",
+            block.timestamp
+        );
         require(electionsStartDate == 0, "Previous elections has to be closed");
         require(
             _preElectionsStartDate > block.timestamp + 30 days,
-            "New election start date has to be at least 30 days planned ahead"
-        );
-        require(
-            _preElectionsStartDate > electionsEndDate + 30 days,
-            "New election start date has to be at least 30 days after the last prepared election end date"
+            "Next election start date has to be at least 30 days planned ahead from now"
         );
 
         preElectionsStartDate = _preElectionsStartDate;
@@ -61,7 +65,7 @@ contract BVS_Elections is BVS_Roles {
 
     function closePreElections() public onlyRole(ADMINISTRATOR) {
         require(
-            preElectionsEndDate + 7 days > block.timestamp,
+            preElectionsEndDate + 7 days < block.timestamp,
             "Pre elections can only close after 7 days of their end"
         );
 
@@ -133,7 +137,6 @@ contract BVS_Elections is BVS_Roles {
         electionVotes = new address[](0);
 
         electionsStartDate = 0;
-        electionsEndDate = 0;
     }
 
     function registerAdmin(

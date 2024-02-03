@@ -3,7 +3,7 @@ import { deployments, ethers } from 'hardhat';
 import { BVS, BVS_Funding, MockV3Aggregator } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { sendValuesInEth } from '../../utils/helpers';
+import { Roles, getPermissionDenyReasonMessage, sendValuesInEth } from '../../utils/helpers';
 
 
 describe("BVS", () => {
@@ -28,13 +28,13 @@ describe("BVS", () => {
     })
 
     describe("unlockTenderBudget", () => {
-        it("should forbid to unlock tender budget money for unauthorized account", async () => {
+        it("should forbid to unlock tender budget money for non POLITICAL_ACTOR account", async () => {
             const bvsAccount1 = await bvs.connect(accounts[1]);
 
-            await expect(bvsAccount1.unlockTenderBudget()).to.be.reverted;
+            await expect(bvsAccount1.unlockTenderBudget()).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.POLITICAL_ACTOR));;
         })
 
-        it("should allow unlock tender budget money for contract account", async () => {
+        it("should allow unlock tender budget money for POLITICAL_ACTOR account", async () => {
 
             await expect(bvs.unlockTenderBudget()).not.to.be.reverted;
         })
