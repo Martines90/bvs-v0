@@ -240,7 +240,7 @@ describe("BVS_Elections", () => {
             await expect(bvsElectionsAccount0.closeElections()).not.to.be.reverted;
 
             assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(0));
-            assert.equal((await bvsElectionsAccount0.electionVotes).length, 0);
+            assert.equal((await bvsElectionsAccount0.electionVoters).length, 0);
 
             assert.equal(await bvsElectionsAccount0.electionsStartDate(), BigInt(0));
         })
@@ -444,6 +444,107 @@ describe("BVS_Elections", () => {
             assert.equal(((await bvsElectionsAccount0.preElectionVotes(accounts[2])).candidate3), accounts[4].address);
         })
     })
+
+    describe('voteOnElections', () => {
+        let bvsElectionsAccount0: BVS_Elections;
+
+        beforeEach(async () => {
+            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
+
+            await grantCitizenshipForAllAccount(accounts, bvsElections);
+
+            await callScheduleNextElections(bvsElectionsAccount0);
+        })
+
+        it('should revert when pre elections not yet closed', async () => {
+            await expect(
+                bvsElectionsAccount0.voteOnElections(accounts[1].address)
+            ).to.be.revertedWith("Pre elections not yet closed or scheduled")
+        })
+
+        it('should revert when elections not yet started', async () => {
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await bvsElectionsAccount0.closePreElections();
+
+            await expect(
+                bvsElectionsAccount0.voteOnElections(accounts[1].address)
+            ).to.be.revertedWith("Elections not yet started")
+        })
+
+        it('should revert when elections already closed', async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate);
+            await bvsElectionsAccount0.closePreElections();
+
+            await expect(
+                bvsElectionsAccount0.voteOnElections(accounts[1].address)
+            ).to.be.revertedWith("Elections already closed")
+        })
+
+        it('should revert when elections already closed', async () => {
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                bvsElectionsAccount0.voteOnElections(accounts[0].address)
+            ).to.be.revertedWith("You can't vote on yourself")
+        })
+
+        it('should revert when elections already closed', async () => {
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                bvsElectionsAccount0.voteOnElections(accounts[1].address)
+            ).to.be.revertedWith("The provided account address not belong to any candidate")
+        })
+
+        it('should revert when elections already closed', async () => {
+            await bvsElectionsAccount0.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[0], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
+
+            // close pre elections
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await bvsElectionsAccount0.closePreElections();
+
+            // start elections
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.voteOnElections(accounts[0].address)
+
+            await expect(
+                bvsElectionsAccount1.voteOnElections(accounts[0].address)
+            ).to.be.revertedWith("You already voted")
+        })
+
+        it('should add new vote to the candidate', async () => {
+            await bvsElectionsAccount0.registerAsPreElectionCandidate();
+            
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[0], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
+
+            // close pre elections
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await bvsElectionsAccount0.closePreElections();
+
+            // start elections
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.voteOnElections(accounts[0].address)
+
+            assert.equal((await bvsElectionsAccount0.electionCandidateScores(accounts[0].address)), BigInt(2));
+            assert.equal((await bvsElectionsAccount0.electionVotes(accounts[1].address)), accounts[0].address);
+        })
+    });
 
     describe('Simulate elections', () => {
         let bvsElectionsAccount0: BVS_Elections;

@@ -37,13 +37,19 @@ contract BVS_Elections is BVS_Roles {
         uint16 voteCount;
     }
 
+    struct ElectionVoter {
+        address account;
+        address candidate1;
+    }
+
     address[] public preElectionCandidates;
     address[] public preElectionVoters;
     mapping(address => PreElectionVoter) public preElectionVotes;
     mapping(address => uint32) public preElectionCandidateScores;
 
     address[] public electionCandidates;
-    address[] public electionVotes;
+    address[] public electionVoters;
+    mapping(address => address) public electionVotes;
     mapping(address => uint32) public electionCandidateScores;
 
     constructor() BVS_Roles() {}
@@ -126,7 +132,7 @@ contract BVS_Elections is BVS_Roles {
         politicalActors = new address[](0);
 
         // assign roles to the winners
-        uint256 totalVotes = electionVotes.length / 100;
+        uint256 totalVotes = electionVoters.length / 100;
         for (uint i = 0; i < electionCandidates.length; i++) {
             uint256 votesOwnedPercentage = electionCandidateScores[
                 electionCandidates[i]
@@ -143,7 +149,7 @@ contract BVS_Elections is BVS_Roles {
         }
 
         electionCandidates = new address[](0);
-        electionVotes = new address[](0);
+        electionVoters = new address[](0);
 
         electionsStartDate = 0;
     }
@@ -219,6 +225,27 @@ contract BVS_Elections is BVS_Roles {
         preElectionCandidateScores[voteOnAddress]++;
     }
 
+    function voteOnElections(address voteOnAddress) public onlyRole(CITIZEN) {
+        require(
+            0 == preElectionsStartDate,
+            "Pre elections not yet closed or scheduled"
+        );
+        require(
+            block.timestamp > electionsStartDate && electionsStartDate != 0,
+            "Elections not yet started"
+        );
+        require(block.timestamp < electionsEndDate, "Elections already closed");
+        require(msg.sender != voteOnAddress, "You can't vote on yourself");
+        require(
+            electionCandidateScores[voteOnAddress] > 0,
+            "The provided account address not belong to any candidate"
+        );
+        require(electionVotes[msg.sender] == address(0), "You already voted");
+
+        electionVotes[msg.sender] = voteOnAddress;
+        electionCandidateScores[voteOnAddress]++;
+    }
+
     function getPreElectionCandidatesSize() public view returns (uint256) {
         return preElectionCandidates.length;
     }
@@ -232,6 +259,6 @@ contract BVS_Elections is BVS_Roles {
     }
 
     function getElectionVotesSize() public view returns (uint256) {
-        return electionVotes.length;
+        return electionVoters.length;
     }
 }
