@@ -19,24 +19,27 @@ import "hardhat/console.sol";
 
 contract BVS_Elections is BVS_Roles {
     uint256 constant ELECTION_START_END_INTERVAL = 30 days;
-    uint256 constant MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES = 10;
-    uint256 constant MINIMUM_PERCENTAGE_OF_ELECTION_VOTES = 5;
+    uint256 constant MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES = 20;
+    uint256 constant MINIMUM_PERCENTAGE_OF_ELECTION_VOTES = 10;
 
     uint256 constant MAXIMUM_NUMBER_OF_PRE_ELECTION_VOTES = 3;
-
-    struct PreElectionVote {
-        address citizenAddress;
-        uint16 voteCount;
-    }
 
     uint256 public preElectionsStartDate;
     uint256 public preElectionsEndDate;
     uint256 public electionsStartDate;
     uint256 public electionsEndDate;
 
+    struct PreElectionVoter {
+        address account;
+        address candidate1;
+        address candidate2;
+        address candidate3;
+        uint16 voteCount;
+    }
+
     address[] public preElectionCandidates;
-    uint256 public preElectionVotersCount;
-    mapping(address => PreElectionVote) public preElectionVotes;
+    address[] public preElectionVoters;
+    mapping(address => PreElectionVoter) public preElectionVotes;
     mapping(address => uint32) public preElectionCandidateScores;
 
     address[] public electionCandidates;
@@ -51,12 +54,6 @@ contract BVS_Elections is BVS_Roles {
         uint256 _electionsStartDate,
         uint256 _electionsEndDate
     ) public onlyRole(ADMINISTRATOR) {
-        console.log(
-            "_preElectionsStartDate:",
-            _preElectionsStartDate,
-            "block.timestamp:",
-            block.timestamp
-        );
         require(electionsStartDate == 0, "Previous elections has to be closed");
         require(
             _preElectionsStartDate > block.timestamp + 30 days,
@@ -76,29 +73,34 @@ contract BVS_Elections is BVS_Roles {
         );
 
         // process data
-        uint256 totalVoters = preElectionVotersCount / 100;
+        uint256 numOfPreElectionVoters = preElectionVoters.length;
         uint256 numOfPreElectionCandidates = preElectionCandidates.length;
-        for (uint i = 0; i < numOfPreElectionCandidates; i++) {
-            uint256 voterSupportPercentage = preElectionCandidateScores[
+
+        for (uint256 i = 0; i < numOfPreElectionCandidates; i++) {
+            uint256 voterSupportPercentage = ((preElectionCandidateScores[
                 preElectionCandidates[i]
-            ] / totalVoters;
+            ] - 1) * 100) / numOfPreElectionVoters;
 
             if (
                 voterSupportPercentage >
                 MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES
             ) {
                 electionCandidates.push(preElectionCandidates[i]);
-                electionCandidateScores[preElectionCandidates[i]] = 0;
+                electionCandidateScores[preElectionCandidates[i]] = 1;
             }
         }
 
         // clean data
-        for (uint i = 0; i < preElectionCandidates.length; i++) {
+        for (uint i = 0; i < numOfPreElectionCandidates; i++) {
             delete preElectionCandidateScores[preElectionCandidates[i]];
         }
 
+        for (uint i = 0; i < numOfPreElectionVoters; i++) {
+            delete preElectionVotes[preElectionVoters[i]];
+        }
+
         preElectionCandidates = new address[](0);
-        preElectionVotersCount = 0;
+        preElectionVoters = new address[](0);
         preElectionsStartDate = 0;
         preElectionsEndDate = 0;
     }
@@ -167,6 +169,7 @@ contract BVS_Elections is BVS_Roles {
     function voteOnPreElections(
         address voteOnAddress
     ) public onlyRole(CITIZEN) {
+        PreElectionVoter memory preElectionVoter = preElectionVotes[msg.sender];
         require(
             block.timestamp > preElectionsStartDate &&
                 preElectionsStartDate != 0,
@@ -177,7 +180,7 @@ contract BVS_Elections is BVS_Roles {
             "Pre elections already closed"
         );
         require(
-            preElectionVotes[msg.sender].voteCount != 3,
+            preElectionVoter.voteCount != 3,
             "You already used your 3 vote credit on the pre elections"
         );
 
@@ -186,24 +189,49 @@ contract BVS_Elections is BVS_Roles {
             "Under the provided address there is no registered pre election candidate"
         );
 
-        if (preElectionVotes[msg.sender].voteCount == 0) {
-            preElectionVotersCount += 1;
-            preElectionVotes[msg.sender] = PreElectionVote({
-                citizenAddress: msg.sender,
-                voteCount: 1
-            });
-        } else {
-            preElectionVotes[msg.sender].voteCount += 1;
-        }
+        require(msg.sender != voteOnAddress, "You can't vote on yourself");
 
-        preElectionCandidateScores[voteOnAddress] += 1;
+        if (preElectionVoter.voteCount == 0) {
+            preElectionVoters.push(msg.sender);
+            preElectionVotes[msg.sender] = PreElectionVoter(
+                msg.sender,
+                voteOnAddress,
+                address(0),
+                address(0),
+                1
+            );
+        } else {
+            require(
+                !(preElectionVoter.candidate1 == voteOnAddress ||
+                    preElectionVoter.candidate2 == voteOnAddress ||
+                    preElectionVoter.candidate3 == voteOnAddress),
+                "You can't vote on the same candidate more than once"
+            );
+
+            if (preElectionVoter.candidate2 == address(0)) {
+                preElectionVotes[msg.sender].candidate2 = voteOnAddress;
+            } else {
+                preElectionVotes[msg.sender].candidate3 = voteOnAddress;
+            }
+
+            preElectionVotes[msg.sender].voteCount++;
+        }
+        preElectionCandidateScores[voteOnAddress]++;
     }
 
     function getPreElectionCandidatesSize() public view returns (uint256) {
         return preElectionCandidates.length;
     }
 
+    function getPreElectionVotersSize() public view returns (uint256) {
+        return preElectionVoters.length;
+    }
+
     function getElectionCandidatesSize() public view returns (uint256) {
         return electionCandidates.length;
+    }
+
+    function getElectionVotesSize() public view returns (uint256) {
+        return electionVotes.length;
     }
 }

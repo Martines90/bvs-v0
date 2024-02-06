@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { Roles, TimeQuantities, getPermissionDenyReasonMessage } from '../../utils/helpers';
+import { Roles, TimeQuantities, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
 
 
 const _now = Math.round(Date.now() / 1000);
@@ -107,6 +107,8 @@ describe("BVS_Elections", () => {
         beforeEach(async () => {
             bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
 
+            await grantCitizenshipForAllAccount(accounts, bvsElections);
+
             await callScheduleNextElections(bvsElectionsAccount0);
         })
 
@@ -130,11 +132,58 @@ describe("BVS_Elections", () => {
             await expect(bvsElectionsAccount0.closePreElections()).not.to.be.reverted;
 
             
-            assert.equal((await bvsElectionsAccount0.preElectionCandidates).length, 0);
-            assert.equal((await bvsElectionsAccount0.preElectionVotersCount()), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.getPreElectionCandidatesSize()), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.getPreElectionVotersSize()), BigInt(0));
 
             assert.equal(await bvsElectionsAccount0.preElectionsStartDate(), BigInt(0));
             assert.equal(await bvsElectionsAccount0.preElectionsEndDate(), BigInt(0));
+        });
+
+        it("should filter the candidates who got more than 20% voter support", async () => {
+            const winnerCandidate1 = await bvsElections.connect(accounts[1]);
+            await winnerCandidate1.registerAsPreElectionCandidate();
+
+            const winnerCandidate2 = await bvsElections.connect(accounts[2]);
+            await winnerCandidate2.registerAsPreElectionCandidate();
+
+            const loserCandidate = await bvsElections.connect(accounts[10]);
+            await loserCandidate.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            // voting
+            await citizensVoteOnPreElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[2], [accounts[3], accounts[4], accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[10], [accounts[11]], bvsElections);
+
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[1])), BigInt(8));
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[2])), BigInt(11));
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[10])), BigInt(2));
+
+            // close elections
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await bvsElectionsAccount0.closePreElections();
+
+            
+
+            assert.equal((await bvsElectionsAccount0.electionCandidates(0)), accounts[1].address);
+            assert.equal((await bvsElectionsAccount0.electionCandidates(1)), accounts[2].address);
+
+            assert.equal((await bvsElectionsAccount0.getPreElectionCandidatesSize()), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(2));
+
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[1])), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[2])), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.preElectionCandidateScores(accounts[10])), BigInt(0));
+            
+            
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[3])).account, '0x0000000000000000000000000000000000000000');
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[3])).candidate1, '0x0000000000000000000000000000000000000000');
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[3])).voteCount, BigInt(0));
         });
     });
 
@@ -263,7 +312,7 @@ describe("BVS_Elections", () => {
             const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
 
             await expect(
-                bvsElectionsAccount1.voteOnPreElections(accounts[2])
+                bvsElectionsAccount1.voteOnPreElections(accounts[2].address)
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.CITIZEN));
         })
 
@@ -275,11 +324,11 @@ describe("BVS_Elections", () => {
             await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate);
 
             await expect(
-            bvsElectionsAccount1.voteOnPreElections(accounts[2])
+            bvsElectionsAccount1.voteOnPreElections(accounts[2].address)
             ).to.be.revertedWith('Pre elections already closed')
         })
 
-        it('should revert citizen voted 3 times', async () => {
+        it('should revert when citizen voted 3 times', async () => {
             await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
             await bvsElectionsAccount0.grantCitizenRole(accounts[2]);
             await bvsElectionsAccount0.grantCitizenRole(accounts[3]);
@@ -300,13 +349,99 @@ describe("BVS_Elections", () => {
 
             const bvsElectionsAccount4 = await bvsElections.connect(accounts[4]);
 
-            await bvsElectionsAccount4.voteOnPreElections(accounts[0]);
-            await bvsElectionsAccount4.voteOnPreElections(accounts[1]);
-            await bvsElectionsAccount4.voteOnPreElections(accounts[2]);
+            await bvsElectionsAccount4.voteOnPreElections(accounts[0].address);
+            await bvsElectionsAccount4.voteOnPreElections(accounts[1].address);
+            await bvsElectionsAccount4.voteOnPreElections(accounts[2].address);
 
             await expect(
-                bvsElectionsAccount4.voteOnPreElections(accounts[1])
+                bvsElectionsAccount4.voteOnPreElections(accounts[3].address)
             ).to.be.revertedWith('You already used your 3 vote credit on the pre elections')
+        })
+
+        it('should revert when the passed account address is not a registered candidate', async () => {
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                bvsElectionsAccount0.voteOnPreElections(accounts[1].address)
+            ).to.be.revertedWith('Under the provided address there is no registered pre election candidate')
+        })
+
+        it('should revert when the passed account address is the same as yours', async () => {
+            await bvsElectionsAccount0.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                bvsElectionsAccount0.voteOnPreElections(accounts[0].address)
+            ).to.be.revertedWith("You can't vote on yourself")
+        })
+
+        it('should revert when try vote on same candidate', async () => {
+            await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            
+            bvsElectionsAccount0.voteOnPreElections(accounts[1].address)
+
+            await expect(
+                bvsElectionsAccount0.voteOnPreElections(accounts[1].address)
+            ).to.be.revertedWith("You can't vote on the same candidate more than once")
+        })
+
+        it('should create/store PreElectionVote object when citizen votes first time', async () => {
+            await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await bvsElectionsAccount0.voteOnPreElections(accounts[1].address)
+
+            assert.equal(await bvsElectionsAccount0.preElectionCandidateScores(accounts[1]), BigInt(2));
+            assert.equal((await bvsElectionsAccount0.getPreElectionVotersSize()), BigInt(1));
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[0])).voteCount, BigInt(1));
+        })
+
+        it('should add the pre election votes sent by citizens', async () => {
+            await bvsElectionsAccount0.grantCitizenRole(accounts[1]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[2]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[3]);
+            await bvsElectionsAccount0.grantCitizenRole(accounts[4]);
+
+            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
+            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+
+            const bvsElectionsAccount3 = await bvsElections.connect(accounts[3]);
+            await bvsElectionsAccount3.registerAsPreElectionCandidate();
+
+            const bvsElectionsAccount4 = await bvsElections.connect(accounts[4]);
+            await bvsElectionsAccount4.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            await bvsElectionsAccount0.voteOnPreElections(accounts[1].address)
+
+            const bvsElectionsAccount2 = await bvsElections.connect(accounts[2]);
+            await bvsElectionsAccount2.voteOnPreElections(accounts[1].address)
+            await bvsElectionsAccount2.voteOnPreElections(accounts[3].address)
+            await bvsElectionsAccount2.voteOnPreElections(accounts[4].address)
+
+            assert.equal(await bvsElectionsAccount0.preElectionCandidateScores(accounts[1]), BigInt(3));
+            assert.equal((await bvsElectionsAccount0.getPreElectionVotersSize()), BigInt(2));
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[2])).voteCount, BigInt(3));
+            assert.equal((await bvsElectionsAccount0.preElectionVotes(accounts[0])).voteCount, BigInt(1));
+
+            assert.equal(((await bvsElectionsAccount0.preElectionVotes(accounts[0])).candidate1), accounts[1].address);
+
+            assert.equal(((await bvsElectionsAccount0.preElectionVotes(accounts[2])).candidate1), accounts[1].address);
+            assert.equal(((await bvsElectionsAccount0.preElectionVotes(accounts[2])).candidate2), accounts[3].address);
+            assert.equal(((await bvsElectionsAccount0.preElectionVotes(accounts[2])).candidate3), accounts[4].address);
         })
     })
 

@@ -1,5 +1,6 @@
 import { ethers } from "hardhat"
 import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 
 export const usdToEther = (amountInUsd: number): bigint => {
     return ethers.parseEther(((amountInUsd * Math.pow(10, DECIMALS)) / INITIAL_PRICE).toString())
@@ -52,4 +53,21 @@ export const valuesInUsd = {
 export const getPermissionDenyReasonMessage = (accountAddress: string, roleKeccak256: string): string => {
     const account = `0x${BigInt(accountAddress).toString(16)}`;
     return `Permissions: account ${account} is missing role ${roleKeccak256}`;
+}
+
+
+// Elections
+
+export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], contract: any) => {
+    const deployer = await contract.connect(accounts[0]);
+    for (let i = 1; accounts.length > i; i++) {
+        await deployer.grantCitizenRole(accounts[i]);
+    }
+}
+
+export const citizensVoteOnPreElectionsCandidate = async (candidate: SignerWithAddress, accounts: SignerWithAddress[], contract: any) => {
+    for (let i = 0; accounts.length > i; i++) {
+        const voter = await contract.connect(accounts[i]);
+        await voter.voteOnPreElections(candidate.address);
+    }
 }
