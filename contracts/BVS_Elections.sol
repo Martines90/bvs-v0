@@ -128,19 +128,24 @@ contract BVS_Elections is BVS_Roles {
         // revoke POLITICAL_ACTOR role from the previous cycle political actors
         for (uint i = 0; i < politicalActors.length; i++) {
             _revokeRole(POLITICAL_ACTOR, politicalActors[i]);
+            delete politicalActorProfiles[politicalActors[i]];
         }
         politicalActors = new address[](0);
 
         // assign roles to the winners
-        uint256 totalVotes = electionVoters.length / 100;
+        uint256 totalVotes = electionVoters.length;
         for (uint i = 0; i < electionCandidates.length; i++) {
-            uint256 votesOwnedPercentage = electionCandidateScores[
+            uint256 votesOwnedPercentage = ((electionCandidateScores[
                 electionCandidates[i]
-            ] / totalVotes;
+            ] - 1) * 100) / totalVotes;
 
             if (votesOwnedPercentage > MINIMUM_PERCENTAGE_OF_ELECTION_VOTES) {
-                politicalActors.push(electionCandidates[i]);
-                _setupRole(POLITICAL_ACTOR, electionCandidates[i]);
+                uint256 votingCycleTotalCredit = (votesOwnedPercentage -
+                    MINIMUM_PERCENTAGE_OF_ELECTION_VOTES) / 10;
+                grantPoliticalActorRole(
+                    electionCandidates[i],
+                    uint16(votingCycleTotalCredit)
+                );
             }
         }
 
@@ -243,6 +248,7 @@ contract BVS_Elections is BVS_Roles {
         require(electionVotes[msg.sender] == address(0), "You already voted");
 
         electionVotes[msg.sender] = voteOnAddress;
+        electionVoters.push(msg.sender);
         electionCandidateScores[voteOnAddress]++;
     }
 
@@ -258,7 +264,7 @@ contract BVS_Elections is BVS_Roles {
         return electionCandidates.length;
     }
 
-    function getElectionVotesSize() public view returns (uint256) {
+    function getElectionVotersSize() public view returns (uint256) {
         return electionVoters.length;
     }
 }

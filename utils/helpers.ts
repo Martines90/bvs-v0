@@ -22,6 +22,7 @@ export enum FundingSizeLevels {
 const hourInMiliSec = 60 * 60;
 
 export enum Roles {
+    SUPER_ADMINISTRATOR = '0xd9d79e7f33c5bfc4f44a41571391ba287235a250c1b3651d666e8b35b4d8ad9a',
     ADMINISTRATOR = '0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661',
     POLITICAL_ACTOR = '0x9f70d138cbbd87297896478196b4493d9dceaca01f5883ecbd7bee66d300348d',
     CITIZEN = '0x313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9',
@@ -69,5 +70,12 @@ export const citizensVoteOnPreElectionsCandidate = async (candidate: SignerWithA
     for (let i = 0; accounts.length > i; i++) {
         const voter = await contract.connect(accounts[i]);
         await voter.voteOnPreElections(candidate.address);
+    }
+}
+
+export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddress, accounts: SignerWithAddress[], contract: any) => {
+    for (let i = 0; accounts.length > i; i++) {
+        const voter = await contract.connect(accounts[i]);
+        await voter.voteOnElections(candidate.address);
     }
 }

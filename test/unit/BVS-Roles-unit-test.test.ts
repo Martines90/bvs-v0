@@ -31,12 +31,12 @@ describe("BVS_Roles", () => {
             bvsRolesAccount0 = await bvsRoles.connect(accounts[0]);
         })
 
-        it("should revert when account don't have ADMINISTRATOR role", async () => {
+        it("should revert when account don't have SUPER_ADMINISTRATOR role", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[1]);
 
             await expect(
                 bvsRolesAccount1.grantAdministratorRole(accounts[2])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.SUPER_ADMINISTRATOR));
         });
 
         it("should not revert when account has ADMINISTRATOR role", async () => {

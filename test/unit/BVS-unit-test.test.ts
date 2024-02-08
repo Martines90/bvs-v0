@@ -1,6 +1,6 @@
 import { deployments, ethers } from 'hardhat';
 
-import { BVS, BVS_Funding, MockV3Aggregator } from '../../typechain-types';
+import { BVS, MockV3Aggregator } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { Roles, getPermissionDenyReasonMessage, sendValuesInEth } from '../../utils/helpers';
@@ -28,6 +28,10 @@ describe("BVS", () => {
     })
 
     describe("unlockTenderBudget", () => {
+        beforeEach(async () => {
+            const bvsAccount0 = await bvs.connect(accounts[0]);
+            await bvsAccount0.grantPoliticalActorRole(accounts[0].address, 2);
+        })
         it("should forbid to unlock tender budget money for non POLITICAL_ACTOR account", async () => {
             const bvsAccount1 = await bvs.connect(accounts[1]);
 
@@ -35,7 +39,6 @@ describe("BVS", () => {
         })
 
         it("should allow unlock tender budget money for POLITICAL_ACTOR account", async () => {
-
             await expect(bvs.unlockTenderBudget()).not.to.be.reverted;
         })
 
