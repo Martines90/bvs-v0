@@ -21,6 +21,8 @@ export enum FundingSizeLevels {
 
 const hourInMiliSec = 60 * 60;
 
+export const NOW = Math.round(Date.now() / 1000);
+
 export enum Roles {
     SUPER_ADMINISTRATOR = '0xd9d79e7f33c5bfc4f44a41571391ba287235a250c1b3651d666e8b35b4d8ad9a',
     ADMINISTRATOR = '0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661',

@@ -5,27 +5,23 @@ import { assert, expect } from 'chai';
 import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { Roles, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 
-const _now = Math.round(Date.now() / 1000);
-
 describe("BVS_Elections", () => {
     let bvsElections: BVS_Elections;
-    let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
 
     const mockNextElectionsConfig = {
-        preElectionsStartDate: _now + TimeQuantities.MONTH + TimeQuantities.DAY,
-        preElectionsEndDate: _now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
-        electionsStartDate: _now + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
-        electionsEndDate: _now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
+        preElectionsStartDate: NOW + TimeQuantities.MONTH + TimeQuantities.DAY,
+        preElectionsEndDate: NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
+        electionsStartDate: NOW + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
+        electionsEndDate: NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
     }
 
     beforeEach(async () => {
         accounts = await ethers.getSigners()
-        deployer = accounts[0]
 
         const deploymentResults = await deployments.fixture(['bvs_elections']);
 
@@ -76,7 +72,7 @@ describe("BVS_Elections", () => {
 
             await expect(callScheduleNextElections(bvsElectionsAccount, {
                 ...mockNextElectionsConfig,
-                preElectionsStartDate: _now + TimeQuantities.MONTH - TimeQuantities.DAY,
+                preElectionsStartDate: NOW + TimeQuantities.MONTH - TimeQuantities.DAY,
             })).to.be.revertedWith('Next election start date has to be at least 30 days planned ahead from now');
         })
 
@@ -85,7 +81,7 @@ describe("BVS_Elections", () => {
 
             await callScheduleNextElections(bvsElectionsAccount);
 
-            const timePassPhase1 = _now + 4 * TimeQuantities.MONTH + 2 * TimeQuantities.DAY + TimeQuantities.WEEK;
+            const timePassPhase1 = NOW + 4 * TimeQuantities.MONTH + 2 * TimeQuantities.DAY + TimeQuantities.WEEK;
             await time.increaseTo(timePassPhase1);
 
             await bvsElectionsAccount.closePreElections();
@@ -122,13 +118,13 @@ describe("BVS_Elections", () => {
         });
 
         it("should revert when pre elections end date is not yet passed by 1 week", async () => {
-            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY);
+            await time.increaseTo(NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY);
 
             await expect(bvsElectionsAccount0.closePreElections()).to.be.revertedWith('Pre elections can only close after 7 days of its end');
         });
 
         it("should close pre elections when pre elections end date passed by more than 1 week", async () => {
-            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await time.increaseTo(NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
 
             await expect(bvsElectionsAccount0.closePreElections()).not.to.be.reverted;
 
@@ -199,7 +195,7 @@ describe("BVS_Elections", () => {
 
             await callScheduleNextElections(bvsElectionsAccount0);
 
-            await time.increaseTo(_now + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await time.increaseTo(NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
         })
 
         it("should revert when account don't have ADMINISTRATOR role", async () => {
@@ -213,7 +209,7 @@ describe("BVS_Elections", () => {
         });
 
         it("should revert when pre elections not yet closed", async () => {
-            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
+            await time.increaseTo(NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
 
             await expect(bvsElectionsAccount0.closeElections()).to.be.revertedWith('Pre elections has to be close first');
         });
@@ -221,7 +217,7 @@ describe("BVS_Elections", () => {
         it("should revert when elections are already closed", async () => {
             await bvsElectionsAccount0.closePreElections();
 
-            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
+            await time.increaseTo(NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.MONTH);
 
             await bvsElectionsAccount0.closeElections();
 
@@ -231,7 +227,7 @@ describe("BVS_Elections", () => {
         it("should revert when elections end date is not yet passed by 1 week", async () => {
             await bvsElectionsAccount0.closePreElections();
 
-            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY);
+            await time.increaseTo(NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY);
 
             await expect(bvsElectionsAccount0.closeElections()).to.be.revertedWith('Elections can only close after 7 days of its end');
         });
@@ -239,7 +235,7 @@ describe("BVS_Elections", () => {
         it("should close elections", async () => {
             await bvsElectionsAccount0.closePreElections();
 
-            await time.increaseTo(_now + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await time.increaseTo(NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY + TimeQuantities.WEEK + TimeQuantities.DAY);
 
             await expect(bvsElectionsAccount0.closeElections()).not.to.be.reverted;
 
