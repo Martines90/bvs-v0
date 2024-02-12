@@ -249,7 +249,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + 13 * TimeQuantities.DAY);
 
             await expect(politicalActor.cancelMyVoting(votingKey)).to.be.revertedWith(
-                "Your voting start date alredy passed"
+                "Your voting start date already passed"
             );
         })
 
@@ -264,7 +264,108 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe('cancelMyVoting', async () => {
+    describe('approveVoting', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let newVotingStartDate: number
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.approveVoting(votingKey)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when voting start date already passed', async () => {
+            const votingKey = await admin.votingKeys(0);
+
+            await time.increaseTo(newVotingStartDate);
+
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
+                "Voting can only be approved before it's start date"
+            );
+        })
+
+        it('should revert when voting start date is not within 3 days', async () => {
+            const votingKey = await admin.votingKeys(0);
+
+            await time.increaseTo(newVotingStartDate - 3 * TimeQuantities.DAY  - TimeQuantities.HOUR);
+
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
+                "Voting can only be approved 3 days or less before it's start"
+            );
+        })
+
+        it('should revert when creator not responded on all the critical articles', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            const articleKey = await politicalActor.articleKeys(0);
+
+            await time.increaseTo(newVotingStartDate - 7 * TimeQuantities.DAY);
+
+            await admin.approveArticle(votingKey, articleKey)
+
+            await time.increaseTo(newVotingStartDate - 2 * TimeQuantities.DAY);
+
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
+                "Creator of the voting not yet responded on all the critics"
+            );
+        })
+
+        it('should approve voting', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            const articleKey = await politicalActor.articleKeys(0);
+
+            await time.increaseTo(newVotingStartDate - 7 * TimeQuantities.DAY);
+
+            await admin.approveArticle(votingKey, articleKey)
+
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'ipfs-response-hash')
+
+            await admin.approveArticleResponse(votingKey, articleKey)
+
+            await time.increaseTo(newVotingStartDate - 2 * TimeQuantities.DAY);
+            await admin.approveVoting(votingKey)
+
+
+            assert.equal((await admin.votings(votingKey)).approved, true);
+        })
+    })
+
+    describe('publishProConArticle', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
         let admin: BVS_Voting
@@ -284,26 +385,136 @@ describe("BVS_Voting", () => {
             await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
         })
 
-        it('should revert when account has no ADMINISTRATOR role', async () => {
+        it('should revert when account has no POLITICAL_ACTOR role', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.approveVoting(votingKey)
+                account2.publishProConArticle(votingKey, 'ipfs-hash', true)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
+        })
+
+        it('should revert when account has no more publish credit related to a specific voting', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            await expect(politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)).to.be.revertedWith(
+                "You don't have more credit (related to this voting) to publish"
+            );
+        })
+
+        it('should publish an article', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            const articleKey = await politicalActor.articleKeys(0);
+            
+            deepEqual((await politicalActor.proConArticles(votingKey, articleKey)),[
+                votingKey,
+                false,
+                false,
+                accounts[1].address,
+                'ipfs-hash',
+                true,
+                ""
+            ])
+
+            assert.equal(await politicalActor.publishArticleToVotingsCount(accounts[1].address, votingKey), BigInt(1))
+        })
+    })
+
+    describe('approveArticle', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+        let newVotingStartDate: number
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.approveArticle(votingKey, articleKey)
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
-        it('should approve voting', async () => {
+        it('should revert when article not exists', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await admin.approveVoting(votingKey)
+            time.increaseTo(newVotingStartDate - 3 * TimeQuantities.DAY - TimeQuantities.HOUR)
 
-            assert.equal((await admin.votings(votingKey)).approved, true);
+            await expect(admin.approveArticle(votingKey, votingKey)).to.be.revertedWith(
+                "Article not exists"
+            );
+        })
+
+        it('should approve an article', async () => {    
+            await admin.approveArticle(votingKey, articleKey)
+
+            time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
+
+            assert.equal((await admin.proConArticles(votingKey, articleKey)).isArticleApproved, true)
+        })
+    })
+    
+
+    describe('publishProConArticleResponse', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+        let newVotingStartDate: number
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
         })
     })
 
-    describe('publishProConArticle', async () => {
-        
-    })
+    describe('approveArticleResponse', async () => {})
+
 })

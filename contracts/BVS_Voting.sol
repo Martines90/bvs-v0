@@ -23,6 +23,7 @@ contract BVS_Voting is BVS_Roles {
     uint256 public constant VOTING_DURATION = 14 days;
 
     struct ProConArticle {
+        bytes32 votingKey;
         bool isArticleApproved;
         bool isResponseApproved;
         address publisher;
@@ -49,16 +50,6 @@ contract BVS_Voting is BVS_Roles {
         mapping(bytes32 => string) proofOfArticleAndResponseRead;
         string proofOfVotingRead;
     }
-
-    struct ProConArticleCompleteRequest {
-        bytes32 articleId;
-        bytes32 voringId;
-        string ipfsHash;
-        bool approved;
-    }
-
-    mapping(address => ProConArticleCompleteRequest)
-        public proConArticleCompleteRequests;
 
     mapping(uint16 => mapping(address => uint16))
         public votingCycleStartVoteCount;
@@ -116,12 +107,7 @@ contract BVS_Voting is BVS_Roles {
         );
         uint256 timePassed = block.timestamp - firstVotingCycleStartDate;
         uint16 votingCycleCount = uint16(timePassed / VOTING_CYCLE_INTERVAL);
-        console.log(
-            "votingCycleCount:",
-            votingCycleCount,
-            "timePassed:",
-            timePassed
-        );
+
         require(
             timePassed - votingCycleCount * VOTING_CYCLE_INTERVAL <
                 VOTING_CYCLE_INTERVAL - 10 days,
@@ -178,44 +164,122 @@ contract BVS_Voting is BVS_Roles {
         );
         require(
             votings[_votingKey].startDate > block.timestamp,
-            "Your voting start date alredy passed"
+            "Your voting start date already passed"
         );
         votings[_votingKey].cancelled = true;
     }
 
     function approveVoting(bytes32 _votingKey) public onlyRole(ADMINISTRATOR) {
+        require(
+            votings[_votingKey].startDate > block.timestamp,
+            "Voting can only be approved before it's start date"
+        );
+        require(
+            votings[_votingKey].startDate - 3 days < block.timestamp,
+            "Voting can only be approved 3 days or less before it's start"
+        );
+        // make sure the creator of the voting responded for all the ciritcal articles
+        bool isRespondedAllTheCritics = true;
+        uint256 articleKeysLength = articleKeys.length;
+
+        for (uint i = 0; i < articleKeysLength; i++) {
+            if (proConArticles[_votingKey][articleKeys[i]].isArticleApproved) {
+                if (
+                    !proConArticles[_votingKey][articleKeys[i]]
+                        .isResponseApproved
+                ) {
+                    isRespondedAllTheCritics = false;
+                    break;
+                }
+            }
+        }
+        require(
+            isRespondedAllTheCritics,
+            "Creator of the voting not yet responded on all the critics"
+        );
         votings[_votingKey].approved = true;
     }
 
     function publishProConArticle(
-        bytes32 votingKey,
-        string memory ipfsHash,
-        bool isVoteOnA
+        bytes32 _votingKey,
+        string memory _ipfsHash,
+        bool _isVoteOnA
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
-            publishArticleToVotingsCount[msg.sender][votingKey] <
+            publishArticleToVotingsCount[msg.sender][_votingKey] <
                 politicalActorProfiles[msg.sender].votingCycleTotalCredits,
             "You don't have more credit (related to this voting) to publish"
         );
 
-        bytes32 _articleKey = keccak256(
+        bytes32 articleKey = keccak256(
             abi.encodePacked(
                 Strings.toString(block.timestamp),
                 msg.sender,
-                ipfsHash
+                _ipfsHash
             )
         );
 
-        proConArticles[votingKey][_articleKey] = ProConArticle(
+        proConArticles[_votingKey][articleKey] = ProConArticle(
+            _votingKey,
             false,
             false,
             msg.sender,
-            ipfsHash,
-            isVoteOnA,
+            _ipfsHash,
+            _isVoteOnA,
             ""
         );
-        articleKeys.push(_articleKey);
-        publishArticleToVotingsCount[msg.sender][votingKey]++;
+        articleKeys.push(articleKey);
+        publishArticleToVotingsCount[msg.sender][_votingKey]++;
+    }
+
+    function approveArticle(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            votings[_votingKey].startDate > block.timestamp,
+            "Voting already started"
+        );
+        require(
+            proConArticles[_votingKey][_articleKey].publisher != address(0),
+            "Article not exists"
+        );
+        proConArticles[_votingKey][_articleKey].isArticleApproved = true;
+    }
+
+    function publishProConArticleResponse(
+        bytes32 _votingKey,
+        bytes32 _proConArticleKey,
+        string memory _ipfsHash
+    ) public onlyRole(POLITICAL_ACTOR) {
+        require(
+            votings[_votingKey].startDate > block.timestamp,
+            "Voting already started"
+        );
+
+        require(
+            votings[proConArticles[_votingKey][_proConArticleKey].votingKey]
+                .creator == msg.sender,
+            "You can respond only articles what are related to your own votings"
+        );
+
+        proConArticles[_votingKey][_proConArticleKey]
+            .responseStatementIpfsHash = _ipfsHash;
+    }
+
+    function approveArticleResponse(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            votings[_votingKey].startDate > block.timestamp,
+            "Voting already started"
+        );
+        require(
+            proConArticles[_votingKey][_articleKey].publisher != address(0),
+            "Article not exists"
+        );
+        proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
 
     /**
