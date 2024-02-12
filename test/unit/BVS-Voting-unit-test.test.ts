@@ -513,8 +513,126 @@ describe("BVS_Voting", () => {
 
             articleKey = await politicalActor.articleKeys(0);
         })
+
+        it('should revert when account has no POLITICAL_ACTOR role', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
+        })
+
+        it('should revert when voting already started', async () => {
+            time.increaseTo(newVotingStartDate)
+
+            await expect(politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWith(
+                "Voting already started"
+            );
+        })
+
+        it('should revert when criticized voting not belongs to the political actor', async () => {
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+
+            await expect(politicalActor2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWith(
+                "You can respond only articles what are related to your own votings"
+            );
+        })
+
+        it('should publish response', async () => {
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            assert.equal((await politicalActor.proConArticles(votingKey, articleKey)).responseStatementIpfsHash, 'response-ipfs-hash')
+        })
     })
 
-    describe('approveArticleResponse', async () => {})
+    describe('approveArticleResponse', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+        let newVotingStartDate: number
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            await expect(
+                account2.approveArticleResponse(votingKey, articleKey)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when voting already started', async () => {
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            time.increaseTo(newVotingStartDate)
+
+            await expect(admin.approveArticleResponse(votingKey, articleKey)).to.be.revertedWith(
+                "Voting already started"
+            );
+        })
+
+        it('should revert when article not exists', async () => {
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+
+            await expect(admin.approveArticleResponse(votingKey, votingKey)).to.be.revertedWith(
+                "Article not exists"
+            );
+        })
+
+        it('should revert when there is no response sent yet', async () => {
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+
+            await expect(admin.approveArticleResponse(votingKey, articleKey)).to.be.revertedWith(
+                "No response belongs to this article"
+            );
+        })
+
+        it('should approve article response', async () => {
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+
+            await admin.approveArticleResponse(votingKey, articleKey)
+
+            assert.equal((await politicalActor.proConArticles(votingKey, articleKey)).isResponseApproved, true)
+        })
+    })
 
 })

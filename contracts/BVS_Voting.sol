@@ -279,6 +279,15 @@ contract BVS_Voting is BVS_Roles {
             proConArticles[_votingKey][_articleKey].publisher != address(0),
             "Article not exists"
         );
+        require(
+            keccak256(
+                bytes(
+                    proConArticles[_votingKey][_articleKey]
+                        .responseStatementIpfsHash
+                )
+            ) != keccak256(bytes("")),
+            "No response belongs to this article"
+        );
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
 
