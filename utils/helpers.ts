@@ -1,6 +1,7 @@
 import { ethers } from "hardhat"
 import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
+import { BVS_Voting } from "../typechain-types"
 
 export const usdToEther = (amountInUsd: number): bigint => {
     return ethers.parseEther(((amountInUsd * Math.pow(10, DECIMALS)) / INITIAL_PRICE).toString())
@@ -79,5 +80,18 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
     for (let i = 0; accounts.length > i; i++) {
         const voter = await contract.connect(accounts[i]);
         await voter.voteOnElections(candidate.address);
+    }
+}
+
+
+export const assignAnwersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+    for (let i = 0; i < cycleCount; i++) {
+        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, hashedAnswer)
+    }
+}
+
+export const assignAnwersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+    for (let i = 0; i < cycleCount; i++) {
+        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, hashedAnswer)
     }
 }

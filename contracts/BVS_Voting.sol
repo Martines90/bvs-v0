@@ -22,14 +22,18 @@ contract BVS_Voting is BVS_Roles {
     uint256 public constant VOTING_CYCLE_INTERVAL = 30 days;
     uint256 public constant VOTING_DURATION = 14 days;
 
+    uint16 public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
+
     struct ProConArticle {
         bytes32 votingKey;
-        bool isArticleApproved;
-        bool isResponseApproved;
+        bool isArticleApproved; // admin approves
+        bool isResponseApproved; // admin approves
         address publisher;
         string articleIpfsHash;
         bool isVoteOnA;
-        string responseStatementIpfsHash;
+        string responseStatementIpfsHash; // addeed by the creator of the related voting
+        string articleContentCheckQuizIpfsHash; // added by admin
+        string responseContentCheckQuizIpfsHash; // added by admin
     }
 
     struct Voting {
@@ -41,6 +45,7 @@ contract BVS_Voting is BVS_Roles {
         uint256 startDate; // 10 days before start date critics can appear
         uint64 voteOnAScore;
         uint64 voteOnBScore;
+        string votingContentCheckQuizIpfsHash;
     }
 
     struct Vote {
@@ -51,17 +56,31 @@ contract BVS_Voting is BVS_Roles {
         string proofOfVotingRead;
     }
 
+    // article content check answers
+    mapping(bytes32 => string[]) public articleContentReadCheckAnswers; // article key => answers
+
+    mapping(bytes32 => string[]) public articleContentResponseReadCheckAnswers; // article key => answers
+
+    mapping(bytes32 => string[]) public votingContentReadCheckAnswers; // voting key => answers
+
+    // track the number of votes political actors created during voting cycles
     mapping(uint16 => mapping(address => uint16))
         public votingCycleStartVoteCount;
 
-    mapping(address => mapping(bytes32 => uint16))
+    // track the number of articles published related to scheduled votings
+    mapping(address => mapping(bytes32 => uint16)) // political_actor =>  voting key => published articles count
         public publishArticleToVotingsCount;
 
+    // register the voting cycle indexes in order to clear votingCycleStartVoteCount data
     uint16[] public votingCycleIndexes;
 
+    // store votings
     mapping(bytes32 => Voting) public votings;
-    mapping(bytes32 => mapping(bytes32 => ProConArticle)) public proConArticles;
 
+    // store pro/con articles
+    mapping(bytes32 => mapping(bytes32 => ProConArticle)) public proConArticles; // voting key => article key => article
+
+    // register voting and article keys
     bytes32[] public votingKeys;
     bytes32[] public articleKeys;
 
@@ -169,6 +188,28 @@ contract BVS_Voting is BVS_Roles {
         votings[_votingKey].cancelled = true;
     }
 
+    function assignQuizIpfsHashToVoting(
+        bytes32 _votingKey,
+        string memory _quizIpfsHash
+    ) public onlyRole(ADMINISTRATOR) {
+        require(votings[_votingKey].creator != address(0), "Voting not exists");
+        votings[_votingKey].votingContentCheckQuizIpfsHash = _quizIpfsHash;
+    }
+
+    function addKeccak256HashedAnswerToVotingContent(
+        bytes32 _votingKey,
+        string memory _keccak256HashedAnswer
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            keccak256(
+                bytes(votings[_votingKey].votingContentCheckQuizIpfsHash)
+            ) != keccak256(bytes("")),
+            "First voting content check ipfs hash has to be assigned"
+        );
+
+        votingContentReadCheckAnswers[_votingKey].push(_keccak256HashedAnswer);
+    }
+
     function approveVoting(bytes32 _votingKey) public onlyRole(ADMINISTRATOR) {
         require(
             votings[_votingKey].startDate > block.timestamp,
@@ -226,10 +267,50 @@ contract BVS_Voting is BVS_Roles {
             msg.sender,
             _ipfsHash,
             _isVoteOnA,
+            "",
+            "",
             ""
         );
         articleKeys.push(articleKey);
         publishArticleToVotingsCount[msg.sender][_votingKey]++;
+    }
+
+    function assignQuizIpfsHashToArticleOrResponse(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string memory _quizIpfsHash,
+        bool assignToArticleContent
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            proConArticles[_votingKey][_articleKey].publisher != address(0),
+            "Article not exists"
+        );
+        if (assignToArticleContent) {
+            proConArticles[_votingKey][_articleKey]
+                .articleContentCheckQuizIpfsHash = _quizIpfsHash;
+        } else {
+            proConArticles[_votingKey][_articleKey]
+                .responseContentCheckQuizIpfsHash = _quizIpfsHash;
+        }
+    }
+
+    function addKeccak256HashedAnswerToArticle(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string memory _keccak256HashedAnswer
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            keccak256(
+                bytes(
+                    proConArticles[_votingKey][_articleKey]
+                        .articleContentCheckQuizIpfsHash
+                )
+            ) != keccak256(bytes("")),
+            "First article content check ipfs hash has to be assigned"
+        );
+        articleContentReadCheckAnswers[_articleKey].push(
+            _keccak256HashedAnswer
+        );
     }
 
     function approveArticle(
@@ -243,6 +324,11 @@ contract BVS_Voting is BVS_Roles {
         require(
             proConArticles[_votingKey][_articleKey].publisher != address(0),
             "Article not exists"
+        );
+        require(
+            articleContentReadCheckAnswers[_articleKey].length >=
+                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
+            "You have to add at least the minimum number of content read check answers to this article"
         );
         proConArticles[_votingKey][_articleKey].isArticleApproved = true;
     }
@@ -267,6 +353,26 @@ contract BVS_Voting is BVS_Roles {
             .responseStatementIpfsHash = _ipfsHash;
     }
 
+    function addKeccak256HashedAnswerToArticleResponse(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string memory _keccak256HashedAnswer
+    ) public onlyRole(ADMINISTRATOR) {
+        require(
+            keccak256(
+                bytes(
+                    proConArticles[_votingKey][_articleKey]
+                        .responseContentCheckQuizIpfsHash
+                )
+            ) != keccak256(bytes("")),
+            "First article response content check ipfs hash has to be assigned"
+        );
+
+        articleContentResponseReadCheckAnswers[_articleKey].push(
+            _keccak256HashedAnswer
+        );
+    }
+
     function approveArticleResponse(
         bytes32 _votingKey,
         bytes32 _articleKey
@@ -287,6 +393,11 @@ contract BVS_Voting is BVS_Roles {
                 )
             ) != keccak256(bytes("")),
             "No response belongs to this article"
+        );
+        require(
+            articleContentResponseReadCheckAnswers[_articleKey].length >=
+                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
+            "You have to add at least the minimum number of content response read check answers to this article"
         );
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }

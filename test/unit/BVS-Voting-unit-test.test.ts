@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, assignAnwersToArticle, assignAnwersToArticleResponse, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 
@@ -15,6 +15,7 @@ describe("BVS_Voting", () => {
     let bvsVoting: BVS_Voting;
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
+    let MIN_TOTAL_CONTENT_READ_CHECK_ANSWER: number
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
@@ -23,6 +24,10 @@ describe("BVS_Voting", () => {
         const bvsAddress: string = deploymentResults['BVS_Voting']?.address;
 
         bvsVoting = await ethers.getContractAt('BVS_Voting', bvsAddress);
+
+        const admin = await bvsVoting.connect(accounts[0]);
+
+        MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = Number(await admin.MIN_TOTAL_CONTENT_READ_CHECK_ANSWER())
     })
 
     describe('setFirstVotingCycleStartDate', () => {
@@ -175,7 +180,8 @@ describe("BVS_Voting", () => {
                 'ipfs-hash',
                 newVotingStartDate,
                 0,
-                0
+                0,
+                ''
             ])
         })
 
@@ -329,6 +335,10 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(newVotingStartDate - 7 * TimeQuantities.DAY);
 
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
+
+            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+
             await admin.approveArticle(votingKey, articleKey)
 
             await time.increaseTo(newVotingStartDate - 2 * TimeQuantities.DAY);
@@ -351,9 +361,17 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(newVotingStartDate - 7 * TimeQuantities.DAY);
 
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
+
+            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+
             await admin.approveArticle(votingKey, articleKey)
 
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'ipfs-response-hash')
+
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'ipfs-quiz-hash', false)
+
+            await assignAnwersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             await admin.approveArticleResponse(votingKey, articleKey)
 
@@ -420,11 +438,121 @@ describe("BVS_Voting", () => {
                 accounts[1].address,
                 'ipfs-hash',
                 true,
+                "",
+                "",
                 ""
             ])
 
             assert.equal(await politicalActor.publishArticleToVotingsCount(accounts[1].address, votingKey), BigInt(1))
         })
+    })
+
+    describe('assignQuizIpfsHashToArticleOrResponse', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string;
+        let articleKey: string
+        
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when article not exists', async () => {
+            await expect(admin.assignQuizIpfsHashToArticleOrResponse(votingKey, votingKey, 'quiz-ipfs-hash', true)).to.be.revertedWith(
+                "Article not exists"
+            );
+        })
+
+        it('should assign ipfs-hash to article content check', async () => {
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
+            
+            assert.equal((await admin.proConArticles(votingKey, articleKey)).articleContentCheckQuizIpfsHash, 'article-content-quiz-ipfs-hash')
+        })
+
+        it('should assign ipfs-hash to article response check', async () => {
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-response-quiz-ipfs-hash', false)
+            
+            assert.equal((await admin.proConArticles(votingKey, articleKey)).responseContentCheckQuizIpfsHash, 'article-response-quiz-ipfs-hash')
+        })
+    })
+
+    describe('addKeccak256HashedAnswerToArticle', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string;
+        let articleKey: string
+        
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when article has no assigned content check quiz yet', async () => {
+            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')).to.be.revertedWith(
+                "First article content check ipfs hash has to be assigned"
+            );
+        })
+
+        it('should add new quiz question answer', async () => {
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
+             
+            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')
+
+            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), 'hashed-answer')
+         })
     })
 
     describe('approveArticle', async () => {
@@ -455,6 +583,7 @@ describe("BVS_Voting", () => {
 
             articleKey = await politicalActor.articleKeys(0);
 
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
         })
 
         it('should revert when account has no ADMINISTRATOR role', async () => {
@@ -475,7 +604,21 @@ describe("BVS_Voting", () => {
             );
         })
 
-        it('should approve an article', async () => {    
+        it('should revert when there is no enough answers assigned to the specific article', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER - 1)
+
+            time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
+
+            await expect(admin.approveArticle(votingKey, articleKey)).to.be.revertedWith(
+                "You have to add at least the minimum number of content read check answers to this article"
+            );
+        })
+
+        it('should approve an article', async () => {
+            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+
             await admin.approveArticle(votingKey, articleKey)
 
             time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
@@ -553,6 +696,60 @@ describe("BVS_Voting", () => {
         })
     })
 
+    // assign quiz (assignQuizIpfsHashToArticleOrResponse) - tested
+
+    describe('addKeccak256HashedAnswerToArticleResponse', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string;
+        let articleKey: string
+        
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when article response has no assigned content check quiz yet', async () => {
+            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')).to.be.revertedWith(
+                "First article response content check ipfs hash has to be assigned"
+            );
+        })
+
+        it('should add new quiz question answer', async () => {
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
+             
+            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')
+
+            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), 'hashed-answer')
+         })
+    })
+
     describe('approveArticleResponse', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
@@ -626,6 +823,10 @@ describe("BVS_Voting", () => {
 
         it('should approve article response', async () => {
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
+
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false)
+
+            await assignAnwersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
 
