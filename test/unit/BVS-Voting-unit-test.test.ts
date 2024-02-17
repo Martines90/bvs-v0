@@ -2,11 +2,14 @@ import { deployments, ethers } from 'hardhat';
 
 import { BVS_Voting } from '../../typechain-types';
 import { assert, expect } from 'chai';
-import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, assignAnwersToArticle, assignAnwersToArticleResponse, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, assignAnwersToArticle, assignAnwersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
 import { deepEqual } from 'assert';
+
+const bytes32 = require('bytes32');
+
 
 
 const _now = Math.round(Date.now() / 1000);
@@ -270,7 +273,7 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe('approveVoting', async () => {
+    describe('assignQuizIpfsHashToVoting', () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
         let admin: BVS_Voting
@@ -295,6 +298,110 @@ describe("BVS_Voting", () => {
         it('should revert when account has no ADMINISTRATOR role', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when voting not exists', async () => {
+            await expect(admin.assignQuizIpfsHashToVoting(bytes32({ input: 'non-existing-voting-key' }), 'quiz-ipfs-hash')).to.be.revertedWith(
+                "Voting not exists"
+            );
+        })
+
+        it('should assign quiz to voting', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            assert.equal((await politicalActor.votings(votingKey)).votingContentCheckQuizIpfsHash, 'quiz-ipfs-hash');
+        })
+    })
+
+    describe('addKeccak256HashedAnswerToVotingContent', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let newVotingStartDate: number
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer')
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when voting content check quiz ipfs not yet assigned', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await expect(admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer')).to.be.revertedWith(
+                "No voting content check quiz ipfs assigned yet"
+            );
+        })
+
+        it('should assign answers to voting quiz', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer-1')
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer-2')
+
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 0)), 'hashed-answer-1');
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 1)), 'hashed-answer-2');
+        })
+    })
+
+    describe('approveVoting', async () => {
+        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let newVotingStartDate: number
+        let votingKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
+
+            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
+            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+        })
+
+        it('should revert when account has no ADMINISTRATOR role', async () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
@@ -834,6 +941,54 @@ describe("BVS_Voting", () => {
 
             assert.equal((await politicalActor.proConArticles(votingKey, articleKey)).isResponseApproved, true)
         })
+    })
+
+
+    describe("getAccountVotingQuizAnswerIndexes", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let newVotingStartDate: number
+        let votingKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+        })
+
+        
+        const mockAccountAddresses = [
+            { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', expected: [BigInt(2), BigInt(5), BigInt(9), BigInt(3), BigInt(4)] },
+            { address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', expected: [BigInt(2), BigInt(9), BigInt(10), BigInt(8), BigInt(7)] },
+            { address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', expected: [BigInt(4), BigInt(2), BigInt(5), BigInt(3), BigInt(6)] },
+            { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', expected: [BigInt(7), BigInt(8), BigInt(9), BigInt(10), BigInt(6)] },
+            { address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', expected: [BigInt(4), BigInt(2), BigInt(6), BigInt(5), BigInt(7)] },
+            { address: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', expected: [BigInt(9), BigInt(8), BigInt(10), BigInt(4), BigInt(3)] },
+            { address: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', expected: [BigInt(9), BigInt(4), BigInt(10), BigInt(7), BigInt(3)] },
+            { address: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', expected: [BigInt(1), BigInt(2), BigInt(6), BigInt(9), BigInt(7)] },
+        ];
+
+        mockAccountAddresses.forEach((item) => {
+            it("should return proper account related answers", async () => {
+                assert.deepEqual(await admin.getAccountVotingQuizAnswerIndexes(votingKey, item.address), item.expected);
+            })
+        })
+
     })
 
 })

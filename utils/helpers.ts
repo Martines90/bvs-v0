@@ -20,6 +20,8 @@ export enum FundingSizeLevels {
     XXXLARGE = 5
 }
 
+const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+
 const hourInMiliSec = 60 * 60;
 
 export const NOW = Math.round(Date.now() / 1000);
@@ -83,6 +85,11 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
     }
 }
 
+export const assignAnwersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+    for (let i = 0; i < cycleCount; i++) {
+        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, hashedAnswer)
+    }
+}
 
 export const assignAnwersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
     for (let i = 0; i < cycleCount; i++) {
@@ -95,3 +102,4 @@ export const assignAnwersToArticleResponse = async (contract: BVS_Voting, voting
         await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, hashedAnswer)
     }
 }
+

@@ -23,6 +23,9 @@ contract BVS_Voting is BVS_Roles {
     uint256 public constant VOTING_DURATION = 14 days;
 
     uint16 public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
+    uint16 public constant VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint16 public constant ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint16 public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
     struct ProConArticle {
         bytes32 votingKey;
@@ -57,11 +60,11 @@ contract BVS_Voting is BVS_Roles {
     }
 
     // article content check answers
-    mapping(bytes32 => string[]) public articleContentReadCheckAnswers; // article key => answers
+    mapping(bytes32 => bytes32[]) public articleContentReadCheckAnswers; // article key => answers
 
-    mapping(bytes32 => string[]) public articleContentResponseReadCheckAnswers; // article key => answers
+    mapping(bytes32 => bytes32[]) public articleContentResponseReadCheckAnswers; // article key => answers
 
-    mapping(bytes32 => string[]) public votingContentReadCheckAnswers; // voting key => answers
+    mapping(bytes32 => bytes32[]) public votingContentReadCheckAnswers; // voting key => answers
 
     // track the number of votes political actors created during voting cycles
     mapping(uint16 => mapping(address => uint16))
@@ -198,13 +201,13 @@ contract BVS_Voting is BVS_Roles {
 
     function addKeccak256HashedAnswerToVotingContent(
         bytes32 _votingKey,
-        string memory _keccak256HashedAnswer
+        bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
             keccak256(
                 bytes(votings[_votingKey].votingContentCheckQuizIpfsHash)
             ) != keccak256(bytes("")),
-            "First voting content check ipfs hash has to be assigned"
+            "No voting content check quiz ipfs assigned yet"
         );
 
         votingContentReadCheckAnswers[_votingKey].push(_keccak256HashedAnswer);
@@ -218,6 +221,11 @@ contract BVS_Voting is BVS_Roles {
         require(
             votings[_votingKey].startDate - 3 days < block.timestamp,
             "Voting can only be approved 3 days or less before it's start"
+        );
+        require(
+            votingContentReadCheckAnswers[_votingKey].length >=
+                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
+            "You have to add at least the minimum number of content read check quiz answers"
         );
         // make sure the creator of the voting responded for all the ciritcal articles
         bool isRespondedAllTheCritics = true;
@@ -297,7 +305,7 @@ contract BVS_Voting is BVS_Roles {
     function addKeccak256HashedAnswerToArticle(
         bytes32 _votingKey,
         bytes32 _articleKey,
-        string memory _keccak256HashedAnswer
+        bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
             keccak256(
@@ -356,7 +364,7 @@ contract BVS_Voting is BVS_Roles {
     function addKeccak256HashedAnswerToArticleResponse(
         bytes32 _votingKey,
         bytes32 _articleKey,
-        string memory _keccak256HashedAnswer
+        bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
             keccak256(
@@ -443,9 +451,97 @@ contract BVS_Voting is BVS_Roles {
         return puzzle;
     }
 
+    function completeVotingQuiz(
+        bytes32 _votingKey,
+        string[] memory _answers
+    ) public onlyRole(CITIZEN) {
+        uint8[] memory answerIndexes = getAccountVotingQuizAnswerIndexes(
+            _votingKey,
+            msg.sender
+        );
+        bool areAnswersCorrect = true;
+        for (uint8 i = 0; i < answerIndexes.length; i++) {
+            if (
+                votingContentReadCheckAnswers[_votingKey][answerIndexes[i]] !=
+                keccak256(bytes(_answers[i]))
+            ) {
+                areAnswersCorrect = false;
+            }
+        }
+
+        require(areAnswersCorrect, "Some of your provided answers are wrong");
+    }
+
+    function completeArticleQuiz(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string[] memory _answers
+    ) public onlyRole(CITIZEN) {}
+
+    function completeArticleReponseQuiz(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string[] memory _answers
+    ) public onlyRole(CITIZEN) {}
+
+    function vote(bytes32 _votingKey, bool _voteOnA) public onlyRole(CITIZEN) {
+        // check if the actual voting is active
+        // check if voter assigned answers are correct
+        // check if there is any related article + article respons and calculate the final voting score
+    }
+
+    function getAccountVotingQuizAnswerIndexes(
+        bytes32 _votingKey,
+        address _account
+    ) public view returns (uint8[] memory) {
+        bytes32 hashCode = keccak256(
+            abi.encodePacked(
+                votings[_votingKey].votingContentCheckQuizIpfsHash,
+                votings[_votingKey].contentIpfsHash,
+                _account
+            )
+        );
+
+        uint8 numOfVotingQuizQuestions = uint8(
+            votingContentReadCheckAnswers[_votingKey].length
+        );
+
+        uint8[] memory questionsToAsk = new uint8[](
+            VOTING_CHECK_ASKED_NUM_OF_QUESTIONS
+        );
+
+        uint8 countAddedQuestions = 0;
+        for (
+            uint8 i = uint8(
+                votings[_votingKey].startDate % numOfVotingQuizQuestions
+            );
+            countAddedQuestions < VOTING_CHECK_ASKED_NUM_OF_QUESTIONS;
+            i++
+        ) {
+            uint8 questionNth = (uint8(hashCode[i]) %
+                numOfVotingQuizQuestions) + 1;
+
+            uint8 u = 0;
+            do {
+                if (questionsToAsk[u] == questionNth) {
+                    questionNth++;
+                    u = 0;
+                    if (questionNth > numOfVotingQuizQuestions) {
+                        questionNth = 1;
+                    }
+                } else {
+                    u++;
+                }
+            } while (u < countAddedQuestions);
+
+            questionsToAsk[countAddedQuestions] = questionNth;
+            countAddedQuestions++;
+        }
+
+        return questionsToAsk;
+    }
+
     function getVotinCycleIndexesSize() public view returns (uint256) {
         return votingCycleIndexes.length;
     }
-
-    function vote() public {}
 }
