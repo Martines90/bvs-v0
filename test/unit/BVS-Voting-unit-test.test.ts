@@ -348,14 +348,14 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer')
+                account2.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer'))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when voting content check quiz ipfs not yet assigned', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await expect(admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer')).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer'))).to.be.revertedWith(
                 "No voting content check quiz ipfs assigned yet"
             );
         })
@@ -365,11 +365,11 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer-1')
-            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, 'hashed-answer-2')
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer-1'))
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer-2'))
 
-            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 0)), 'hashed-answer-1');
-            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 1)), 'hashed-answer-2');
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 0)), bytes32('hashed-answer-1'));
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 1)), bytes32('hashed-answer-1'));
         })
     })
 
@@ -643,12 +643,12 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')
+                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))).to.be.revertedWith(
                 "First article content check ipfs hash has to be assigned"
             );
         })
@@ -656,9 +656,9 @@ describe("BVS_Voting", () => {
         it('should add new quiz question answer', async () => {
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
              
-            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, 'hashed-answer')
+            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))
 
-            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), 'hashed-answer')
+            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), bytes32('hashed-answer'))
          })
     })
 
@@ -838,12 +838,12 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')
+                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article response has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))).to.be.revertedWith(
                 "First article response content check ipfs hash has to be assigned"
             );
         })
@@ -851,9 +851,9 @@ describe("BVS_Voting", () => {
         it('should add new quiz question answer', async () => {
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
              
-            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, 'hashed-answer')
+            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))
 
-            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), 'hashed-answer')
+            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), bytes32('hashed-answer'))
          })
     })
 

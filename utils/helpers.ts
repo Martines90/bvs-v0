@@ -3,6 +3,8 @@ import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import { BVS_Voting } from "../typechain-types"
 
+const bytes32 = require('bytes32');
+
 export const usdToEther = (amountInUsd: number): bigint => {
     return ethers.parseEther(((amountInUsd * Math.pow(10, DECIMALS)) / INITIAL_PRICE).toString())
 }
@@ -87,19 +89,19 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
 
 export const assignAnwersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, hashedAnswer)
+        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32(hashedAnswer))
     }
 }
 
 export const assignAnwersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, hashedAnswer)
+        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32(hashedAnswer))
     }
 }
 
 export const assignAnwersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, hashedAnswer)
+        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32(hashedAnswer))
     }
 }
 
