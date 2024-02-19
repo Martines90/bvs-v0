@@ -53,10 +53,9 @@ contract BVS_Voting is BVS_Roles {
 
     struct Vote {
         address account;
-        bool approved;
-        bytes32 votingId;
-        mapping(bytes32 => string) proofOfArticleAndResponseRead;
-        string proofOfVotingRead;
+        bytes32 votingKey;
+        bool isContentCompleted;
+        string test;
     }
 
     // article content check answers
@@ -86,6 +85,11 @@ contract BVS_Voting is BVS_Roles {
     // register voting and article keys
     bytes32[] public votingKeys;
     bytes32[] public articleKeys;
+
+    mapping(address => mapping(bytes32 => Vote)) public votes;
+
+    mapping(address => bytes32[]) public articlesCompleted;
+    mapping(address => bytes32[]) public articlesResponseCompleted;
 
     constructor() BVS_Roles() {}
 
@@ -410,48 +414,7 @@ contract BVS_Voting is BVS_Roles {
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
 
-    /**
-     * getMyArticleCompletePuzzle generates a series of indexes marking the position of a word in the article
-     * At article complete process Voter has to pick the first and last letter or these words from the article marked by this information.
-     * This is a unique way to prove if voter read an article as nobody can copy, re use this answer
-     * @param articleWordCount This is the total number of words what the article contains
-     * @param articleIpfsHash This is the hash id of the article stored in an ipfs network
-     */
-
-    function getMyArticleCompletePuzzle(
-        uint256 articleWordCount,
-        string memory articleIpfsHash
-    ) public view returns (string memory) {
-        string memory puzzle;
-
-        bytes32 hashCode = keccak256(
-            abi.encodePacked(articleIpfsHash, msg.sender, articleWordCount)
-        );
-
-        uint256 total = 1;
-        for (uint i = 0; i < hashCode.length; i++) {
-            uint8 item = uint8(hashCode[i]);
-            if (i % 2 == 0) {
-                total *= item;
-            } else {
-                total += item;
-            }
-
-            if ((i + 1) % 4 == 0) {
-                uint256 wordIndex = (total % articleWordCount) + 1;
-                puzzle = string.concat(
-                    puzzle,
-                    "|",
-                    Strings.toString(wordIndex)
-                );
-                total = 1;
-            }
-        }
-
-        return puzzle;
-    }
-
-    function completeVotingQuiz(
+    function completeVotingContentReadQuiz(
         bytes32 _votingKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
@@ -459,34 +422,63 @@ contract BVS_Voting is BVS_Roles {
             _votingKey,
             msg.sender
         );
-        bool areAnswersCorrect = true;
-        for (uint8 i = 0; i < answerIndexes.length; i++) {
-            if (
-                votingContentReadCheckAnswers[_votingKey][answerIndexes[i]] !=
-                keccak256(bytes(_answers[i]))
-            ) {
-                areAnswersCorrect = false;
-            }
-        }
 
-        require(areAnswersCorrect, "Some of your provided answers are wrong");
+        bool isCorrect = isContentReadQuizCorrect(
+            answerIndexes,
+            votingContentReadCheckAnswers[_votingKey],
+            _answers
+        );
+
+        require(isCorrect, "Some of your provided answers are wrong");
+        votes[msg.sender][_votingKey].isContentCompleted = true;
     }
 
-    function completeArticleQuiz(
+    function completeArticleReadQuiz(
         bytes32 _votingKey,
         bytes32 _articleKey,
         string[] memory _answers
-    ) public onlyRole(CITIZEN) {}
+    ) public onlyRole(CITIZEN) {
+        uint8[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
+            _votingKey,
+            _articleKey,
+            msg.sender
+        );
 
-    function completeArticleReponseQuiz(
+        bool isCorrect = isContentReadQuizCorrect(
+            answerIndexes,
+            articleContentReadCheckAnswers[_articleKey],
+            _answers
+        );
+
+        require(isCorrect, "Some of your provided answers are wrong");
+        articlesCompleted[msg.sender].push(_articleKey);
+    }
+
+    function completeArticleResponseQuiz(
         bytes32 _votingKey,
         bytes32 _articleKey,
         string[] memory _answers
-    ) public onlyRole(CITIZEN) {}
+    ) public onlyRole(CITIZEN) {
+        uint8[]
+            memory answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
+                _votingKey,
+                _articleKey,
+                msg.sender
+            );
+
+        bool isCorrect = isContentReadQuizCorrect(
+            answerIndexes,
+            articleContentResponseReadCheckAnswers[_articleKey],
+            _answers
+        );
+
+        require(isCorrect, "Some of your provided answers are wrong");
+        articlesResponseCompleted[msg.sender].push(_articleKey);
+    }
 
     function vote(bytes32 _votingKey, bool _voteOnA) public onlyRole(CITIZEN) {
-        // check if the actual voting is active
-        // check if voter assigned answers are correct
+        // check if the actual voting is active / exists
+        // check if voting content check quiz completed
         // check if there is any related article + article respons and calculate the final voting score
     }
 
@@ -494,28 +486,91 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         address _account
     ) public view returns (uint8[] memory) {
-        bytes32 hashCode = keccak256(
-            abi.encodePacked(
+        return
+            getAccountQuizAnswerIndexes(
                 votings[_votingKey].votingContentCheckQuizIpfsHash,
                 votings[_votingKey].contentIpfsHash,
+                votings[_votingKey].startDate,
+                votingContentReadCheckAnswers[_votingKey].length,
+                VOTING_CHECK_ASKED_NUM_OF_QUESTIONS,
                 _account
-            )
+            );
+    }
+
+    function getAccountArticleQuizAnswerIndexes(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        address _account
+    ) public view returns (uint8[] memory) {
+        return
+            getAccountQuizAnswerIndexes(
+                proConArticles[_votingKey][_articleKey]
+                    .articleContentCheckQuizIpfsHash,
+                proConArticles[_votingKey][_articleKey].articleIpfsHash,
+                votings[_votingKey].startDate,
+                articleContentReadCheckAnswers[_articleKey].length,
+                ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS,
+                _account
+            );
+    }
+
+    function getAccountArticleResponseQuizAnswerIndexes(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        address _account
+    ) public view returns (uint8[] memory) {
+        return
+            getAccountQuizAnswerIndexes(
+                proConArticles[_votingKey][_articleKey]
+                    .responseContentCheckQuizIpfsHash,
+                proConArticles[_votingKey][_articleKey]
+                    .responseStatementIpfsHash,
+                votings[_votingKey].startDate,
+                articleContentResponseReadCheckAnswers[_articleKey].length,
+                ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS,
+                _account
+            );
+    }
+
+    function isContentReadQuizCorrect(
+        uint8[] memory _answerIndexes,
+        bytes32[] memory _readCheckAnswers,
+        string[] memory _answers
+    ) public view onlyRole(CITIZEN) returns (bool) {
+        bool areAnswersCorrect = true;
+
+        for (uint8 i = 0; i < _answerIndexes.length; i++) {
+            if (
+                _readCheckAnswers[_answerIndexes[i] - 1] !=
+                keccak256(bytes(_answers[i]))
+            ) {
+                areAnswersCorrect = false;
+            }
+        }
+
+        return areAnswersCorrect;
+    }
+
+    function getAccountQuizAnswerIndexes(
+        string memory ipfsHash1,
+        string memory ipfsHash2,
+        uint256 _date,
+        uint256 _numOfTotalQuestions,
+        uint256 _numOfQuiestionsToAsk,
+        address _account
+    ) internal pure returns (uint8[] memory) {
+        bytes32 hashCode = keccak256(
+            abi.encodePacked(ipfsHash1, ipfsHash2, _account)
         );
 
-        uint8 numOfVotingQuizQuestions = uint8(
-            votingContentReadCheckAnswers[_votingKey].length
-        );
+        uint8 numOfVotingQuizQuestions = uint8(_numOfTotalQuestions);
 
-        uint8[] memory questionsToAsk = new uint8[](
-            VOTING_CHECK_ASKED_NUM_OF_QUESTIONS
-        );
+        uint8[] memory questionsToAsk = new uint8[](_numOfQuiestionsToAsk);
 
         uint8 countAddedQuestions = 0;
         for (
-            uint8 i = uint8(
-                votings[_votingKey].startDate % numOfVotingQuizQuestions
-            );
-            countAddedQuestions < VOTING_CHECK_ASKED_NUM_OF_QUESTIONS;
+            uint8 i = uint8(_date % numOfVotingQuizQuestions);
+            countAddedQuestions < _numOfQuiestionsToAsk;
             i++
         ) {
             uint8 questionNth = (uint8(hashCode[i]) %

@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, assignAnwersToArticle, assignAnwersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 const bytes32 = require('bytes32');
@@ -444,7 +444,7 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
 
-            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             await admin.approveArticle(votingKey, articleKey)
 
@@ -470,7 +470,7 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
 
-            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             await admin.approveArticle(votingKey, articleKey)
 
@@ -478,7 +478,7 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'ipfs-quiz-hash', false)
 
-            await assignAnwersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await assignAnswersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             await admin.approveArticleResponse(votingKey, articleKey)
 
@@ -714,7 +714,7 @@ describe("BVS_Voting", () => {
         it('should revert when there is no enough answers assigned to the specific article', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER - 1)
+            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER - 1)
 
             time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
 
@@ -724,7 +724,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should approve an article', async () => {
-            await assignAnwersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             await admin.approveArticle(votingKey, articleKey)
 
@@ -933,7 +933,7 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false)
 
-            await assignAnwersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await assignAnswersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
 
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
 
@@ -943,12 +943,10 @@ describe("BVS_Voting", () => {
         })
     })
 
-
     describe("getAccountVotingQuizAnswerIndexes", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let admin: BVS_Voting
-        let newVotingStartDate: number
         let votingKey: string
 
         beforeEach(async () => {
@@ -984,11 +982,356 @@ describe("BVS_Voting", () => {
         ];
 
         mockAccountAddresses.forEach((item) => {
-            it("should return proper account related answers", async () => {
+            it("should return proper account related voting quiz answers", async () => {
                 assert.deepEqual(await admin.getAccountVotingQuizAnswerIndexes(votingKey, item.address), item.expected);
             })
         })
+    })
 
+    describe("getAccountArticleQuizAnswerIndexes", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+            
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true);
+
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+        })
+
+        
+        const mockAccountAddresses = [
+            { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', expected: [BigInt(1), BigInt(7), BigInt(9), BigInt(2), BigInt(3)] },
+            { address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', expected: [BigInt(9), BigInt(5), BigInt(10), BigInt(1), BigInt(3)] },
+            { address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', expected: [BigInt(7), BigInt(4), BigInt(2), BigInt(6), BigInt(8)] },
+            { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', expected: [BigInt(6), BigInt(10), BigInt(7), BigInt(8), BigInt(9)] },
+            { address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', expected: [BigInt(8), BigInt(5), BigInt(6), BigInt(7), BigInt(9)] },
+            { address: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', expected: [BigInt(2), BigInt(5), BigInt(3), BigInt(8), BigInt(1)] },
+            { address: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', expected: [BigInt(9), BigInt(6), BigInt(2), BigInt(10), BigInt(4)] },
+            { address: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', expected: [BigInt(4), BigInt(6), BigInt(3), BigInt(5), BigInt(7)] },
+        ];
+
+        mockAccountAddresses.forEach((item) => {
+            it("should return proper account related article quiz answers", async () => {
+                assert.deepEqual(await admin.getAccountArticleQuizAnswerIndexes(votingKey, articleKey, item.address), item.expected);
+            })
+        })
+    })
+
+    describe("getAccountArticleResponseQuizAnswerIndexes", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+            
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false);
+
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+        })
+
+        
+        const mockAccountAddresses = [
+            { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', expected: [BigInt(2), BigInt(5), BigInt(4), BigInt(8), BigInt(9)] },
+            { address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', expected: [BigInt(1), BigInt(2), BigInt(5), BigInt(6), BigInt(7)] },
+            { address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', expected: [BigInt(6), BigInt(2), BigInt(3), BigInt(7), BigInt(9)] },
+            { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', expected: [BigInt(10), BigInt(4), BigInt(7), BigInt(9), BigInt(8)] },
+            { address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', expected: [BigInt(10), BigInt(9), BigInt(8), BigInt(7), BigInt(1)] },
+            { address: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', expected: [BigInt(5), BigInt(6), BigInt(1), BigInt(7), BigInt(4)] },
+            { address: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', expected: [BigInt(8), BigInt(7), BigInt(9), BigInt(5), BigInt(10)] },
+            { address: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', expected: [BigInt(1), BigInt(10), BigInt(4), BigInt(3), BigInt(2)] },
+        ];
+
+        mockAccountAddresses.forEach((item) => {
+            it("should return proper account related article response quiz answers", async () => {
+                assert.deepEqual(await admin.getAccountArticleResponseQuizAnswerIndexes(votingKey, articleKey, item.address), item.expected);
+            })
+        })
+    })
+
+    describe("completeVotingContentReadQuiz", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+        })
+
+        it('should revert when account has no CITIZEN role', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.completeVotingContentReadQuiz(votingKey, [])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+
+        it('should revert when any of the provided answers are wrong', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.completeVotingContentReadQuiz(votingKey, [
+                "answer-1",
+                "answer-2",
+                "answer-3",
+                "answer-4",
+                "answer-5"
+            ])).to.be.revertedWith(
+                "Some of your provided answers are wrong"
+            );
+        })
+
+        it('should complete voting when provided answers are correct', async () => {
+            const votingKey = await politicalActor.votingKeys(0);
+
+            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+
+            const indexes = await admin.getAccountVotingQuizAnswerIndexes(votingKey, accounts[1].address)
+
+            const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await account.completeVotingContentReadQuiz(votingKey, answers);
+            assert.equal((await account.votes(accounts[1].address, votingKey)).isContentCompleted, true); 
+        })
+    })
+
+
+    describe("completeArticleReadQuiz", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+            
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true);
+        })
+
+        it('should revert when account has no CITIZEN role', async () => {
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.completeArticleReadQuiz(votingKey, articleKey, [])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+
+        it('should revert when any of the provided answers are wrong', async () => {
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.completeArticleReadQuiz(votingKey, articleKey, [
+                "answer-1",
+                "answer-2",
+                "answer-3",
+                "answer-4",
+                "answer-5"
+            ])).to.be.revertedWith(
+                "Some of your provided answers are wrong"
+            );
+        })
+
+        it('should complete article quiz when provided answers are correct', async () => {
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+
+            const indexes = await admin.getAccountArticleQuizAnswerIndexes(votingKey, articleKey, accounts[1].address)
+
+            const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await account.completeArticleReadQuiz(votingKey, articleKey, answers);
+
+            assert.equal(await account.articlesCompleted(accounts[1].address, 0), articleKey); 
+        })
+    })
+
+
+    describe("completeArticleResponseQuiz", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+
+            votingKey = await politicalActor.votingKeys(0);
+            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+
+            const politicalActor2 = await bvsVoting.connect(accounts[2]);
+
+            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+
+            articleKey = await politicalActor.articleKeys(0);
+            
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false);
+        })
+
+        it('should revert when account has no CITIZEN role', async () => {
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.completeArticleResponseQuiz(votingKey, articleKey, [])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+
+        it('should revert when any of the provided answers are wrong', async () => {
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.completeArticleResponseQuiz(votingKey, articleKey, [
+                "answer-1",
+                "answer-2",
+                "answer-3",
+                "answer-4",
+                "answer-5"
+            ])).to.be.revertedWith(
+                "Some of your provided answers are wrong"
+            );
+        })
+
+        it('should complete article response quiz when provided answers are correct', async () => {
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+
+            const indexes = await admin.getAccountArticleResponseQuizAnswerIndexes(votingKey, articleKey, accounts[1].address)
+
+            const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await account.completeArticleResponseQuiz(votingKey, articleKey, answers);
+
+            assert.equal(await account.articlesResponseCompleted(accounts[1].address, 0), articleKey); 
+        })
     })
 
 })

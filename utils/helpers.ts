@@ -58,6 +58,19 @@ export const valuesInUsd = {
     xxxlarge: usdWithDecimals(1000000),
 }
 
+export const mockHashedAnwers = [
+    '0x68fb62764fff24bdb9519d2ed88a4193e88eaf76546c4c21d495dd08c4166fac', // hashed-answer-1
+    '0xf873437ae0f8d9f6a52028c67f9b70f8376851df9b346812a7cdda09d04fcde0', // hashed-answer-2
+    '0xc7f1671dd501054bac61b2ff2a7bbae597f7a31ac57e64d1e0c71337a00a70be', // hashed-answer-3
+    '0x1eda30202f11e71a923f2dd6e5e9ac2201bf45250cffdc1c5b144c71d74dc75e', // hashed-answer-4
+    '0x2f74f22fc803f2a34deeccafedd1d902ed659af4ef76fe58d7330d9ce965b2d8', // hashed-answer-5
+    '0x813809630f4513e5d68803b7d20b4cff55847f14d3f83fd69bb1b334096b0267', // hashed-answer-6
+    '0x126b6e8c5f52d5170fdebeed2044f1f995a8be17bd54fa95ae4d0c28f1ee8a3c', // hashed-answer-7
+    '0xe88ee86cb32a1f68262583e468dd88f00b79a923c282f538f5ae067ba3287976', // hashed-answer-8
+    '0x8d0ac92ff1c3280302e6e351923a19232e8d6ac2da089ea1dd416844575b15c0', // hashed-answer-9
+    '0xc565b155b2c0a0fb27c01b2de9ce206063e4a29fa3326e35c9afa47c9d7366a4'  // hashed-answer-10
+]
+
 export const getPermissionDenyReasonMessage = (accountAddress: string, roleKeccak256: string): string => {
     const account = `0x${BigInt(accountAddress).toString(16)}`;
     return `Permissions: account ${account} is missing role ${roleKeccak256}`;
@@ -87,21 +100,21 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
     }
 }
 
-export const assignAnwersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+export const assignAnwersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32(hashedAnswer))
+        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, hashedAnswers[i])
     }
 }
 
-export const assignAnwersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+export const assignAnswersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32(hashedAnswer))
+        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, hashedAnswers[i])
     }
 }
 
-export const assignAnwersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswer = 'hashed-answer') => {
+export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
     for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32(hashedAnswer))
+        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, hashedAnswers[i])
     }
 }
 
