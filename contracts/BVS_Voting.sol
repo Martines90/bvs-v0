@@ -484,6 +484,10 @@ contract BVS_Voting is BVS_Roles {
                 block.timestamp,
             "Voting is not yet started or already finished"
         );
+        require(
+            votings[_votingKey].approved,
+            "This voting not approved for some reason"
+        );
         // check if citizen already voted
         require(
             !votes[msg.sender][_votingKey].voted,
@@ -689,6 +693,14 @@ contract BVS_Voting is BVS_Roles {
         }
 
         return questionsToAsk;
+    }
+
+    function getVotingKeysLength() public view returns (uint256) {
+        return votingKeys.length;
+    }
+
+    function getArticleKeysLength() public view returns (uint256) {
+        return articleKeys.length;
     }
 
     function getVotinCycleIndexesSize() public view returns (uint256) {

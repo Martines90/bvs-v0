@@ -100,6 +100,8 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
     }
 }
 
+// voting
+
 export const assignAnwersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
     for (let i = 0; i < cycleCount; i++) {
         await contract.addKeccak256HashedAnswerToVotingContent(votingKey, hashedAnswers[i])
@@ -118,3 +120,95 @@ export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votin
     }
 }
 
+// startNewVotingWithQuizAndContentCheckAnswers
+
+export const startNewVoting = async (politicalActor: BVS_Voting, startDate: number) => {
+    await politicalActor.scheduleNewVoting('content-ipfs-hash', startDate);
+}
+
+export const addQuizAndContentCheckAnswersToVoting = async (admin: BVS_Voting) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+    await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
+
+    await assignAnwersToVoting(admin, votingKey, 10)
+}
+
+export const addArticleToVotingWithQuizAndAnswers = async (admin: BVS_Voting, criticalPoliticalActorAccount: SignerWithAddress, isVoteOnA: boolean) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+
+    await admin.grantPoliticalActorRole(criticalPoliticalActorAccount.address, 2);
+
+    const criticalPoliticalActor = await admin.connect(criticalPoliticalActorAccount);
+
+    await criticalPoliticalActor.publishProConArticle(votingKey, 'ipfs-hash', isVoteOnA)
+
+    const articleKey = await admin.articleKeys((await admin.getArticleKeysLength()) - BigInt(1));
+
+    await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true)
+
+    await assignAnswersToArticle(admin, votingKey, articleKey, 10)
+}
+
+export const addResponseToArticleWithQuizAndAnswers = async (admin: BVS_Voting, politicalActorAccountWhoStartedTheVoting: SignerWithAddress) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+    const articleKey = await admin.articleKeys((await admin.getArticleKeysLength()) - BigInt(1));
+
+    const politicalActorWhoStartedTheVoting = await admin.connect(politicalActorAccountWhoStartedTheVoting);
+
+    await politicalActorWhoStartedTheVoting.publishProConArticleResponse(votingKey, articleKey, 'ipfs-response-hash')
+
+    await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false)
+
+    await assignAnswersToArticleResponse(admin, votingKey, articleKey, 10)
+}
+
+// completeVoting
+
+export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWithAddress) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+
+    const voter = await admin.connect(voterAccount);
+
+    const indexes = await admin.getAccountVotingQuizAnswerIndexes(votingKey, voterAccount.address)
+
+    const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+    await admin.grantCitizenRole(voterAccount)
+
+    await voter.completeVotingContentReadQuiz(votingKey, answers);
+}
+
+// completeArticle
+
+export const completeArticle = async (admin: BVS_Voting, voterAccount: SignerWithAddress) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+    const articleKey = await admin.articleKeys((await admin.getArticleKeysLength()) - BigInt(1));
+
+    const voter = await admin.connect(voterAccount);
+
+    const indexes = await admin.getAccountArticleQuizAnswerIndexes(votingKey, articleKey, voterAccount.address)
+
+    const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+    await admin.grantCitizenRole(voterAccount)
+
+    await voter.completeArticleReadQuiz(votingKey, articleKey, answers);
+}
+
+
+// completeResponse
+
+export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: SignerWithAddress) => {
+    const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+    const articleKey = await admin.articleKeys((await admin.getArticleKeysLength()) - BigInt(1));
+
+    const voter = await admin.connect(voterAccount);
+
+    const indexes = await admin.getAccountArticleResponseQuizAnswerIndexes(votingKey, articleKey, voterAccount.address)
+
+    const answers = indexes.map((item) => `hashed-answer-${item}`);
+
+    await admin.grantCitizenRole(voterAccount)
+
+    await voter.completeArticleResponseQuiz(votingKey, articleKey, answers);
+}

@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 const bytes32 = require('bytes32');
@@ -1159,16 +1159,9 @@ describe("BVS_Voting", () => {
 
             await assignAnwersToVoting(bvsVoting, votingKey, 10);
 
-            const indexes = await admin.getAccountVotingQuizAnswerIndexes(votingKey, accounts[1].address)
+            await completeVoting(admin, accounts[1])
 
-            const answers = indexes.map((item) => `hashed-answer-${item}`);
-
-            await admin.grantCitizenRole(accounts[1])
-
-            const account = await bvsVoting.connect(accounts[1]);
-
-            await account.completeVotingContentReadQuiz(votingKey, answers);
-            assert.equal((await account.votes(accounts[1].address, votingKey)).isContentCompleted, true); 
+            assert.equal((await admin.votes(accounts[1].address, votingKey)).isContentCompleted, true); 
         })
     })
 
@@ -1239,17 +1232,9 @@ describe("BVS_Voting", () => {
         it('should complete article quiz when provided answers are correct', async () => {
             await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
 
-            const indexes = await admin.getAccountArticleQuizAnswerIndexes(votingKey, articleKey, accounts[1].address)
+            await completeArticle(admin, accounts[1])
 
-            const answers = indexes.map((item) => `hashed-answer-${item}`);
-
-            await admin.grantCitizenRole(accounts[1])
-
-            const account = await bvsVoting.connect(accounts[1]);
-
-            await account.completeArticleReadQuiz(votingKey, articleKey, answers);
-
-            assert.equal(await account.articlesCompleted(accounts[1].address, 0), articleKey); 
+            assert.equal(await admin.articlesCompleted(accounts[1].address, 0), articleKey); 
         })
     })
 
@@ -1273,16 +1258,13 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate);
 
             votingKey = await politicalActor.votingKeys(0);
-            await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
+            await addQuizAndContentCheckAnswersToVoting(admin);
 
-            const politicalActor2 = await bvsVoting.connect(accounts[2]);
-
-            await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
+            await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], true)
 
             articleKey = await politicalActor.articleKeys(0);
             
@@ -1320,18 +1302,51 @@ describe("BVS_Voting", () => {
         it('should complete article response quiz when provided answers are correct', async () => {
             await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
 
-            const indexes = await admin.getAccountArticleResponseQuizAnswerIndexes(votingKey, articleKey, accounts[1].address)
+            await completeArticleResponse(admin, accounts[1])
 
-            const answers = indexes.map((item) => `hashed-answer-${item}`);
-
-            await admin.grantCitizenRole(accounts[1])
-
-            const account = await bvsVoting.connect(accounts[1]);
-
-            await account.completeArticleResponseQuiz(votingKey, articleKey, answers);
-
-            assert.equal(await account.articlesResponseCompleted(accounts[1].address, 0), articleKey); 
+            assert.equal(await admin.articlesResponseCompleted(accounts[1].address, 0), articleKey); 
         })
     })
 
+    describe("vote", async () => {
+        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
+        let politicalActor: BVS_Voting
+        let admin: BVS_Voting
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin = await bvsVoting.connect(accounts[0]);
+
+            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+
+            politicalActor = await bvsVoting.connect(accounts[1]);
+
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await startNewVoting(politicalActor, farFutureDate)
+
+            await addQuizAndContentCheckAnswersToVoting(admin)
+
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], true);
+
+            articleKey = await politicalActor.articleKeys(0);
+
+            await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
+        })
+
+        it('should revert when account has no CITIZEN role', async () => {
+            const account2 = await bvsVoting.connect(accounts[2]);
+
+            await expect(
+                account2.vote(votingKey, true)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+    })
 })
