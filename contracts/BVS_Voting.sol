@@ -27,6 +27,8 @@ contract BVS_Voting is BVS_Roles {
     uint16 public constant ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
     uint16 public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
+    uint8 public constant MIN_VOTE_SCORE = 5;
+
     struct ProConArticle {
         bytes32 votingKey;
         bool isArticleApproved; // admin approves
@@ -46,16 +48,14 @@ contract BVS_Voting is BVS_Roles {
         address creator;
         string contentIpfsHash;
         uint256 startDate; // 10 days before start date critics can appear
-        uint64 voteOnAScore;
-        uint64 voteOnBScore;
+        uint256 voteOnAScore;
+        uint256 voteOnBScore;
         string votingContentCheckQuizIpfsHash;
     }
 
     struct Vote {
-        address account;
-        bytes32 votingKey;
+        bool voted;
         bool isContentCompleted;
-        string test;
     }
 
     // article content check answers
@@ -478,8 +478,103 @@ contract BVS_Voting is BVS_Roles {
 
     function vote(bytes32 _votingKey, bool _voteOnA) public onlyRole(CITIZEN) {
         // check if the actual voting is active / exists
+        require(
+            votings[_votingKey].startDate > block.timestamp &&
+                votings[_votingKey].startDate + VOTING_DURATION <
+                block.timestamp,
+            "Voting is not yet started or already finished"
+        );
+        // check if citizen already voted
+        require(
+            !votes[msg.sender][_votingKey].voted,
+            "You already voted on this ongoing voting"
+        );
         // check if voting content check quiz completed
+        require(
+            votes[msg.sender][_votingKey].isContentCompleted,
+            "You have to first complete voting related content check quiz"
+        );
+
+        uint voteScore = MIN_VOTE_SCORE;
+
         // check if there is any related article + article respons and calculate the final voting score
+        // proConArticles
+        uint completedArticlesLength = articlesCompleted[msg.sender].length;
+
+        uint numOfVoteOnACompletedContentValue = 0;
+        uint numOfVoteOnBCompletedContentValue = 0;
+
+        for (uint i = 0; i < completedArticlesLength; i++) {
+            ProConArticle memory completedProConArticle = proConArticles[
+                _votingKey
+            ][articlesCompleted[msg.sender][i]];
+            if (completedProConArticle.votingKey == _votingKey) {
+                if (completedProConArticle.isVoteOnA) {
+                    numOfVoteOnACompletedContentValue += 10;
+                } else {
+                    numOfVoteOnBCompletedContentValue += 10;
+                }
+                // check article response
+                if (
+                    keccak256(
+                        bytes(
+                            completedProConArticle
+                                .responseContentCheckQuizIpfsHash
+                        )
+                    ) != keccak256(bytes(""))
+                ) {
+                    uint completedArticlesResponseLength = articlesResponseCompleted[
+                            msg.sender
+                        ].length;
+                    for (uint u = 0; u < completedArticlesResponseLength; u++) {
+                        ProConArticle
+                            memory completedProConArticleWithResponse = proConArticles[
+                                _votingKey
+                            ][articlesResponseCompleted[msg.sender][i]];
+                        if (
+                            completedProConArticleWithResponse.votingKey ==
+                            _votingKey
+                        ) {
+                            if (completedProConArticleWithResponse.isVoteOnA) {
+                                numOfVoteOnACompletedContentValue += 5;
+                            } else {
+                                numOfVoteOnBCompletedContentValue += 5;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // calculate vote score
+
+        uint noPairCount = 0;
+        if (
+            numOfVoteOnACompletedContentValue >
+            numOfVoteOnBCompletedContentValue
+        ) {
+            noPairCount = (numOfVoteOnACompletedContentValue -
+                numOfVoteOnBCompletedContentValue);
+        } else {
+            noPairCount = (numOfVoteOnBCompletedContentValue -
+                numOfVoteOnACompletedContentValue);
+        }
+
+        voteScore +=
+            ((numOfVoteOnACompletedContentValue +
+                numOfVoteOnBCompletedContentValue -
+                noPairCount) / 4) *
+            5 +
+            (noPairCount / 2);
+
+        // add new vote
+        if (_voteOnA) {
+            votings[_votingKey].voteOnAScore += voteScore;
+        } else {
+            votings[_votingKey].voteOnBScore += voteScore;
+        }
+
+        votes[msg.sender][_votingKey].voted = true;
     }
 
     function getAccountVotingQuizAnswerIndexes(
