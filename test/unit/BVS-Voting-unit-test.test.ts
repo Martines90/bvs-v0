@@ -5,20 +5,24 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount, startNewVoting } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 const bytes32 = require('bytes32');
 
-
-
-const _now = Math.round(Date.now() / 1000);
-
 describe("BVS_Voting", () => {
+    let admin: BVS_Voting;
     let bvsVoting: BVS_Voting;
-    let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
     let MIN_TOTAL_CONTENT_READ_CHECK_ANSWER: number
+
+    // contract constants
+    let VOTING_DURATION: number;
+    let VOTING_CYCLE_INTERVAL: number;
+    let APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT: number;
+    let NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME: number;
+    let MIN_VOTE_SCORE: number;
+
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
@@ -28,7 +32,14 @@ describe("BVS_Voting", () => {
 
         bvsVoting = await ethers.getContractAt('BVS_Voting', bvsAddress);
 
-        const admin = await bvsVoting.connect(accounts[0]);
+        // read contract constants
+        VOTING_DURATION = Number(await bvsVoting.VOTING_DURATION());
+        VOTING_CYCLE_INTERVAL = Number(await bvsVoting.VOTING_CYCLE_INTERVAL());
+        APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT = Number(await bvsVoting.APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT());
+        NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = Number(await bvsVoting.NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME());
+        MIN_VOTE_SCORE = Number(await bvsVoting.MIN_VOTE_SCORE());
+
+        admin = await bvsVoting.connect(accounts[0]);
 
         MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = Number(await admin.MIN_TOTAL_CONTENT_READ_CHECK_ANSWER())
     })
@@ -45,23 +56,16 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when passed date is before now', async () => {
-            const admin = await bvsVoting.connect(accounts[0]);
-
             await expect(admin.setFirstVotingCycleStartDate(NOW - TimeQuantities.HOUR)).to.be.revertedWith('Voting cycle start date has to be in the future');
         })
 
         it('should update firstVotingCycleStartDate with passed date', async () => {
-            const admin = await bvsVoting.connect(accounts[0]);
-
-            
             await admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate);
 
             await assert.equal(await admin.firstVotingCycleStartDate(), BigInt(firstVotingCycleStartDate))
         })
 
         it('should update firstVotingCycleStartDate with passed date and has to clear previous voting cycle indexes', async () => {
-            const admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate);
 
             await admin.firstVotingCycleStartDate(), BigInt(firstVotingCycleStartDate)
@@ -77,7 +81,7 @@ describe("BVS_Voting", () => {
             await assert.equal(await admin.getVotinCycleIndexesSize(), BigInt(1))
             
 
-            await admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate + 30 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate + VOTING_CYCLE_INTERVAL);
 
             await assert.equal((await admin.votingCycleStartVoteCount(BigInt(0), accounts[0].address)), BigInt(0))
             await assert.equal(await admin.getVotinCycleIndexesSize(), BigInt(0))
@@ -89,8 +93,6 @@ describe("BVS_Voting", () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
 
         beforeEach(async () => {
-            const admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -120,7 +122,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.HOUR);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 10 * TimeQuantities.DAY)).to.be.revertedWith('New voting has to be scheduled 10 days later from now');
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME)).to.be.revertedWith('New voting has to be scheduled 10 days later from now');
         })
 
         it('should revert when new voting scheduled later than one VOTING_CYCLE_INTERVAL', async () => {
@@ -128,16 +130,16 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.HOUR);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 31 * TimeQuantities.DAY)).to.be.revertedWith('New voting start date can only be scheduled within 30 days ahead');
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY)).to.be.revertedWith('New voting start date can only be scheduled within 30 days ahead');
         })
 
 
-        it('should revert when new voting scheduled before 10 days of the end of the actual ongoing voting cycle', async () => {
+        it('should revert when new voting scheduled before 10 days at the end of the actual ongoing voting cycle', async () => {
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 20 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL - NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 31 * TimeQuantities.DAY)).to.be.revertedWith(
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY)).to.be.revertedWith(
                 "You can't start new voting 10 days or less before the ongoing voting cycle ends"
             );
         })
@@ -145,7 +147,7 @@ describe("BVS_Voting", () => {
         it('should revert when political actor runs out of start new voting credits', async () => {
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 10 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(0))
 
@@ -165,7 +167,7 @@ describe("BVS_Voting", () => {
         it('should add new voting', async () => {
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 10 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY;
             await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
@@ -191,7 +193,7 @@ describe("BVS_Voting", () => {
         it("should increase voting cycle count when we are in the following voting cycle", async () => {
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 10 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(0))
 
@@ -211,11 +213,8 @@ describe("BVS_Voting", () => {
     describe('cancelMyVoting', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -240,7 +239,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when voting not belongs to the account', async () => {
-            const admin = await bvsVoting.connect(accounts[0]);
             admin.grantPoliticalActorRole(accounts[2], 2);
 
             const votingKey = await politicalActor.votingKeys(0);
@@ -255,7 +253,7 @@ describe("BVS_Voting", () => {
         it('should revert when voting start date already passed', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 13 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_DURATION - TimeQuantities.DAY);
 
             await expect(politicalActor.cancelMyVoting(votingKey)).to.be.revertedWith(
                 "Your voting start date already passed"
@@ -265,7 +263,7 @@ describe("BVS_Voting", () => {
         it('should cancel voting', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await time.increaseTo(mockFirstVotingCycleStartDate + 11 * TimeQuantities.DAY);
+            await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_DURATION - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await politicalActor.cancelMyVoting(votingKey)
 
@@ -276,12 +274,9 @@ describe("BVS_Voting", () => {
     describe('assignQuizIpfsHashToVoting', () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let newVotingStartDate: number
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -323,12 +318,9 @@ describe("BVS_Voting", () => {
     describe('addKeccak256HashedAnswerToVotingContent', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let newVotingStartDate: number
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -376,13 +368,10 @@ describe("BVS_Voting", () => {
     describe('approveVoting', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let newVotingStartDate: number
         let votingKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -422,7 +411,7 @@ describe("BVS_Voting", () => {
         it('should revert when voting start date is not within 3 days', async () => {
             const votingKey = await admin.votingKeys(0);
 
-            await time.increaseTo(newVotingStartDate - 3 * TimeQuantities.DAY  - TimeQuantities.HOUR);
+            await time.increaseTo(newVotingStartDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT - TimeQuantities.HOUR);
 
             await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
                 "Voting can only be approved 3 days or less before it's start"
@@ -493,11 +482,8 @@ describe("BVS_Voting", () => {
     describe('publishProConArticle', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -557,14 +543,10 @@ describe("BVS_Voting", () => {
     describe('assignQuizIpfsHashToArticleOrResponse', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string;
-        let articleKey: string
-        
+        let articleKey: string      
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -613,14 +595,10 @@ describe("BVS_Voting", () => {
     describe('addKeccak256HashedAnswerToArticle', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string;
         let articleKey: string
-        
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -665,14 +643,11 @@ describe("BVS_Voting", () => {
     describe('approveArticle', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
         let newVotingStartDate: number
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -704,7 +679,7 @@ describe("BVS_Voting", () => {
         it('should revert when article not exists', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            time.increaseTo(newVotingStartDate - 3 * TimeQuantities.DAY - TimeQuantities.HOUR)
+            time.increaseTo(newVotingStartDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT - TimeQuantities.HOUR)
 
             await expect(admin.approveArticle(votingKey, votingKey)).to.be.revertedWith(
                 "Article not exists"
@@ -738,14 +713,11 @@ describe("BVS_Voting", () => {
     describe('publishProConArticleResponse', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
         let newVotingStartDate: number
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -808,14 +780,11 @@ describe("BVS_Voting", () => {
     describe('addKeccak256HashedAnswerToArticleResponse', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string;
         let articleKey: string
         
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -860,14 +829,11 @@ describe("BVS_Voting", () => {
     describe('approveArticleResponse', async () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
         let newVotingStartDate: number
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -946,20 +912,17 @@ describe("BVS_Voting", () => {
     describe("getAccountVotingQuizAnswerIndexes", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(farFutureDate - (VOTING_DURATION - TimeQuantities.DAY));
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(farFutureDate - (VOTING_DURATION - 2 * TimeQuantities.DAY));
 
             await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
 
@@ -991,13 +954,10 @@ describe("BVS_Voting", () => {
     describe("getAccountArticleQuizAnswerIndexes", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1046,13 +1006,10 @@ describe("BVS_Voting", () => {
     describe("getAccountArticleResponseQuizAnswerIndexes", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1101,12 +1058,9 @@ describe("BVS_Voting", () => {
     describe("completeVotingContentReadQuiz", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1169,13 +1123,10 @@ describe("BVS_Voting", () => {
     describe("completeArticleReadQuiz", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1242,13 +1193,10 @@ describe("BVS_Voting", () => {
     describe("completeArticleResponseQuiz", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1308,16 +1256,13 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe("vote", async () => {
+    describe("voteOnVoting", async () => {
         const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
-        let admin: BVS_Voting
         let votingKey: string
         let articleKey: string
 
         beforeEach(async () => {
-            admin = await bvsVoting.connect(accounts[0]);
-
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
             await admin.grantPoliticalActorRole(accounts[1].address, 2);
@@ -1333,20 +1278,163 @@ describe("BVS_Voting", () => {
 
 
             votingKey = await politicalActor.votingKeys(0);
+        })
 
+        it('should revert when account has no CITIZEN role', async () => {
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(
+                account.voteOnVoting(votingKey, true)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.CITIZEN));
+        })
+
+        it('should revert when voting already started', async () => {
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
+                "Voting is not yet started or it is already finished"
+            );
+        })
+
+        it('should revert when voting already finished', async () => {
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION);
+
+            await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
+                "Voting is not yet started or it is already finished"
+            );
+        })
+
+        it('should revert when voting not approved', async () => {
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
+                "Voting is not approved for some reason"
+            );
+        })
+
+        it('should revert when citizen did not completed voting content check quiz', async () => {
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+
+            await admin.approveVoting(votingKey)
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
+                "You have to first complete voting related content check quiz"
+            );
+        })
+
+        it('should revert when citizen already voted', async () => {
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+
+            await admin.approveVoting(votingKey)
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            await completeVoting(admin, accounts[1]);
+
+            await account.voteOnVoting(votingKey, true);
+
+            await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
+                "You already voted on this voting"
+            );
+        })
+
+        it('should count citizen voting score properly when there is no expected additional score', async () => {
             await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], true);
 
             articleKey = await politicalActor.articleKeys(0);
 
             await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
+
+            await admin.grantCitizenRole(accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+            const account2 = await bvsVoting.connect(accounts[2]);
+            const account3 = await bvsVoting.connect(accounts[3]);
+
+            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+
+            await admin.approveVoting(votingKey)
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            assert.equal((await admin.votings(votingKey)).voteOnAScore, BigInt(0));
+            assert.equal((await admin.votings(votingKey)).voteOnBScore, BigInt(0));
+            
+            await completeVoting(admin, accounts[1]);
+            await completeVoting(admin, accounts[2]);
+            await completeVoting(admin, accounts[3]);
+
+            await account.voteOnVoting(votingKey, true);
+            await account2.voteOnVoting(votingKey, false);
+            await account3.voteOnVoting(votingKey, false);
+
+            assert.equal((await admin.votings(votingKey)).voteOnAScore, BigInt(MIN_VOTE_SCORE));
+            assert.equal((await admin.votings(votingKey)).voteOnBScore, BigInt(2 * MIN_VOTE_SCORE));
         })
 
-        it('should revert when account has no CITIZEN role', async () => {
-            const account2 = await bvsVoting.connect(accounts[2]);
+        it('should count citizen voting score properly when citizen completed related articles', async () => {
+            await admin.grantCitizenRole(accounts[1])
 
-            await expect(
-                account2.vote(votingKey, true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+
+            await admin.approveVoting(votingKey)
+
+            await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], true);
+
+            await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
+
+            await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], false); // publish and assign new article
+
+            await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
+
+            await addArticleToVotingWithQuizAndAnswers(admin, accounts[3], false); // publish and assign new article
+
+            await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            await completeVoting(admin, accounts[1]);
+
+
+            let articleKey1 = await politicalActor.articleKeys(0);
+            let articleKey2 = await politicalActor.articleKeys(1);
+            let articleKey3 = await politicalActor.articleKeys(2);
+
+
+            await completeArticle(admin, accounts[1], articleKey1); // complete first article
+            await completeArticleResponse(admin, accounts[1], articleKey1);
+
+            await completeArticle(admin, accounts[1], articleKey2); // complete second article
+            await completeArticleResponse(admin, accounts[1], articleKey2);
+
+            await completeArticle(admin, accounts[1], articleKey3); // complete third article
+            await completeArticleResponse(admin, accounts[1], articleKey3);
+
+            await account.voteOnVoting(votingKey, true);
+
+            assert.equal((await account.votings(votingKey)).voteOnAScore, BigInt(MIN_VOTE_SCORE + 42));
         })
     })
 })

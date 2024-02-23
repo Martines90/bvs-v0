@@ -21,6 +21,8 @@ contract BVS_Voting is BVS_Roles {
     uint256 public firstVotingCycleStartDate;
     uint256 public constant VOTING_CYCLE_INTERVAL = 30 days;
     uint256 public constant VOTING_DURATION = 14 days;
+    uint256 public constant APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT = 3 days;
+    uint256 public constant NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = 10 days;
 
     uint16 public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
     uint16 public constant VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
@@ -124,7 +126,8 @@ contract BVS_Voting is BVS_Roles {
             "Start new voting period is not yet active"
         );
         require(
-            _startDate > block.timestamp + 10 days,
+            _startDate >
+                block.timestamp + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME,
             "New voting has to be scheduled 10 days later from now"
         );
         require(
@@ -136,7 +139,8 @@ contract BVS_Voting is BVS_Roles {
 
         require(
             timePassed - votingCycleCount * VOTING_CYCLE_INTERVAL <
-                VOTING_CYCLE_INTERVAL - 10 days,
+                VOTING_CYCLE_INTERVAL -
+                    NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME,
             "You can't start new voting 10 days or less before the ongoing voting cycle ends"
         );
         require(
@@ -223,7 +227,9 @@ contract BVS_Voting is BVS_Roles {
             "Voting can only be approved before it's start date"
         );
         require(
-            votings[_votingKey].startDate - 3 days < block.timestamp,
+            votings[_votingKey].startDate -
+                APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT <
+                block.timestamp,
             "Voting can only be approved 3 days or less before it's start"
         );
         require(
@@ -438,6 +444,13 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _articleKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
+        require(
+            !isBytes32ArrayContains(
+                articlesResponseCompleted[msg.sender],
+                _articleKey
+            ),
+            "You already completed this article quiz"
+        );
         uint8[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
             _votingKey,
             _articleKey,
@@ -459,6 +472,13 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _articleKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
+        require(
+            !isBytes32ArrayContains(
+                articlesResponseCompleted[msg.sender],
+                _articleKey
+            ),
+            "You already completed this article response quiz"
+        );
         uint8[]
             memory answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
                 _votingKey,
@@ -476,37 +496,43 @@ contract BVS_Voting is BVS_Roles {
         articlesResponseCompleted[msg.sender].push(_articleKey);
     }
 
-    function vote(bytes32 _votingKey, bool _voteOnA) public onlyRole(CITIZEN) {
+    function voteOnVoting(
+        bytes32 _votingKey,
+        bool _voteOnA
+    ) public onlyRole(CITIZEN) {
         // check if the actual voting is active / exists
         require(
-            votings[_votingKey].startDate > block.timestamp &&
-                votings[_votingKey].startDate + VOTING_DURATION <
+            votings[_votingKey].startDate < block.timestamp &&
+                votings[_votingKey].startDate + VOTING_DURATION >
                 block.timestamp,
-            "Voting is not yet started or already finished"
+            "Voting is not yet started or it is already finished"
         );
         require(
             votings[_votingKey].approved,
-            "This voting not approved for some reason"
-        );
-        // check if citizen already voted
-        require(
-            !votes[msg.sender][_votingKey].voted,
-            "You already voted on this ongoing voting"
+            "Voting is not approved for some reason"
         );
         // check if voting content check quiz completed
         require(
             votes[msg.sender][_votingKey].isContentCompleted,
             "You have to first complete voting related content check quiz"
         );
+        // check if citizen already voted
+        require(
+            !votes[msg.sender][_votingKey].voted,
+            "You already voted on this voting"
+        );
+
+        // calculate vote score
 
         uint voteScore = MIN_VOTE_SCORE;
 
-        // check if there is any related article + article respons and calculate the final voting score
-        // proConArticles
         uint completedArticlesLength = articlesCompleted[msg.sender].length;
 
-        uint numOfVoteOnACompletedContentValue = 0;
-        uint numOfVoteOnBCompletedContentValue = 0;
+        uint numOfVoteOnACompletedArticleValue = 0;
+        uint numOfVoteOnBCompletedArticleValue = 0;
+
+        uint numOfVoteOnACompletedResponseValue = 0;
+        uint numOfVoteOnBCompletedResponseValue = 0;
 
         for (uint i = 0; i < completedArticlesLength; i++) {
             ProConArticle memory completedProConArticle = proConArticles[
@@ -514,62 +540,36 @@ contract BVS_Voting is BVS_Roles {
             ][articlesCompleted[msg.sender][i]];
             if (completedProConArticle.votingKey == _votingKey) {
                 if (completedProConArticle.isVoteOnA) {
-                    numOfVoteOnACompletedContentValue += 10;
+                    numOfVoteOnACompletedArticleValue += 1;
                 } else {
-                    numOfVoteOnBCompletedContentValue += 10;
-                }
-                // check article response
-                if (
-                    keccak256(
-                        bytes(
-                            completedProConArticle
-                                .responseContentCheckQuizIpfsHash
-                        )
-                    ) != keccak256(bytes(""))
-                ) {
-                    uint completedArticlesResponseLength = articlesResponseCompleted[
-                            msg.sender
-                        ].length;
-                    for (uint u = 0; u < completedArticlesResponseLength; u++) {
-                        ProConArticle
-                            memory completedProConArticleWithResponse = proConArticles[
-                                _votingKey
-                            ][articlesResponseCompleted[msg.sender][i]];
-                        if (
-                            completedProConArticleWithResponse.votingKey ==
-                            _votingKey
-                        ) {
-                            if (completedProConArticleWithResponse.isVoteOnA) {
-                                numOfVoteOnACompletedContentValue += 5;
-                            } else {
-                                numOfVoteOnBCompletedContentValue += 5;
-                            }
-                        }
-                    }
+                    numOfVoteOnBCompletedArticleValue += 1;
                 }
             }
         }
 
-        // calculate vote score
-
-        uint noPairCount = 0;
-        if (
-            numOfVoteOnACompletedContentValue >
-            numOfVoteOnBCompletedContentValue
-        ) {
-            noPairCount = (numOfVoteOnACompletedContentValue -
-                numOfVoteOnBCompletedContentValue);
-        } else {
-            noPairCount = (numOfVoteOnBCompletedContentValue -
-                numOfVoteOnACompletedContentValue);
+        uint completedArticlesResponseLength = articlesResponseCompleted[
+            msg.sender
+        ].length;
+        for (uint u = 0; u < completedArticlesResponseLength; u++) {
+            ProConArticle
+                memory completedProConArticleWithResponse = proConArticles[
+                    _votingKey
+                ][articlesResponseCompleted[msg.sender][u]];
+            if (completedProConArticleWithResponse.votingKey == _votingKey) {
+                if (completedProConArticleWithResponse.isVoteOnA) {
+                    numOfVoteOnACompletedResponseValue += 1;
+                } else {
+                    numOfVoteOnBCompletedResponseValue += 1;
+                }
+            }
         }
 
-        voteScore +=
-            ((numOfVoteOnACompletedContentValue +
-                numOfVoteOnBCompletedContentValue -
-                noPairCount) / 4) *
-            5 +
-            (noPairCount / 2);
+        voteScore += calculateExtraVotingScore(
+            numOfVoteOnACompletedArticleValue,
+            numOfVoteOnBCompletedArticleValue,
+            numOfVoteOnACompletedResponseValue,
+            numOfVoteOnBCompletedResponseValue
+        );
 
         // add new vote
         if (_voteOnA) {
@@ -695,6 +695,58 @@ contract BVS_Voting is BVS_Roles {
         return questionsToAsk;
     }
 
+    function calculateExtraVotingScore(
+        uint _numOfVoteOnACompletedArticleValue,
+        uint _numOfVoteOnBCompletedArticleValue,
+        uint _numOfVoteOnACompletedResponseValue,
+        uint _numOfVoteOnBCompletedResponseValue
+    ) public pure returns (uint) {
+        uint extraVoteScore = 0;
+
+        uint noPairArticleCompleteCount = 0;
+
+        if (
+            _numOfVoteOnACompletedArticleValue >
+            _numOfVoteOnBCompletedArticleValue
+        ) {
+            noPairArticleCompleteCount = (_numOfVoteOnACompletedArticleValue -
+                _numOfVoteOnBCompletedArticleValue);
+        } else {
+            noPairArticleCompleteCount = (_numOfVoteOnBCompletedArticleValue -
+                _numOfVoteOnACompletedArticleValue);
+        }
+
+        extraVoteScore +=
+            ((_numOfVoteOnACompletedArticleValue +
+                _numOfVoteOnBCompletedArticleValue -
+                noPairArticleCompleteCount) / 2) *
+            25 +
+            (noPairArticleCompleteCount * 5);
+
+        // add the balanced way calculated scores after completed responses
+        uint noPairResponseCompleteCount = 0;
+
+        if (
+            _numOfVoteOnACompletedResponseValue >
+            _numOfVoteOnBCompletedResponseValue
+        ) {
+            noPairResponseCompleteCount = (_numOfVoteOnACompletedResponseValue -
+                _numOfVoteOnBCompletedResponseValue);
+        } else {
+            noPairResponseCompleteCount = (_numOfVoteOnBCompletedResponseValue -
+                _numOfVoteOnACompletedResponseValue);
+        }
+
+        extraVoteScore +=
+            ((_numOfVoteOnACompletedResponseValue +
+                _numOfVoteOnBCompletedResponseValue -
+                noPairResponseCompleteCount) / 2) *
+            10 +
+            (noPairResponseCompleteCount * 2);
+
+        return extraVoteScore;
+    }
+
     function getVotingKeysLength() public view returns (uint256) {
         return votingKeys.length;
     }
@@ -705,5 +757,17 @@ contract BVS_Voting is BVS_Roles {
 
     function getVotinCycleIndexesSize() public view returns (uint256) {
         return votingCycleIndexes.length;
+    }
+
+    function isBytes32ArrayContains(
+        bytes32[] memory _array,
+        bytes32 _item
+    ) public pure returns (bool) {
+        for (uint i = 0; i < _array.length; i++) {
+            if (_array[i] == _item) {
+                return true;
+            }
+        }
+        return false;
     }
 }

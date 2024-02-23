@@ -77,6 +77,13 @@ contract BVS_Roles is Permissions {
         citizens.push(account);
     }
 
+    function checkIfAccounthasRole(
+        address _account,
+        bytes32 _role
+    ) public view returns (bool) {
+        return hasRole(_role, _account);
+    }
+
     function getAdminsSize() public view returns (uint256) {
         return admins.length;
     }
