@@ -30,6 +30,7 @@ contract BVS_Voting is BVS_Roles {
     uint16 public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
     uint8 public constant MIN_VOTE_SCORE = 5;
+    uint public constant MIN_PERCENTAGE_OF_VOTES = 10;
 
     struct ProConArticle {
         bytes32 votingKey;
@@ -48,6 +49,7 @@ contract BVS_Voting is BVS_Roles {
         bool cancelled;
         bytes32 key;
         uint256 requiredBudget;
+        uint256 voteCount;
         address creator;
         string contentIpfsHash;
         uint256 startDate; // 10 days before start date critics can appear
@@ -570,6 +572,7 @@ contract BVS_Voting is BVS_Roles {
             votings[_votingKey].voteOnBScore += voteScore;
         }
 
+        votings[_votingKey].voteCount++;
         votes[msg.sender][_votingKey].voted = true;
     }
 
@@ -737,6 +740,41 @@ contract BVS_Voting is BVS_Roles {
             (noPairResponseCompleteCount * 2);
 
         return extraVoteScore;
+    }
+
+    function isVotingWon(
+        bytes32 _votingKey,
+        bool _isAWinExpected
+    ) public returns (bool) {
+        require(
+            votings[_votingKey].startDate + VOTING_DURATION < block.timestamp,
+            "Voting is not yet started or it is already ongoing"
+        );
+        require(votings[_votingKey].approved, "Voting not approved");
+        require(
+            (votings[_votingKey].voteCount * 100) / citizens.length >
+                MIN_PERCENTAGE_OF_VOTES,
+            "The receieved number of votes is less than the required minimum"
+        );
+        if (_isAWinExpected) {
+            return
+                votings[_votingKey].voteOnAScore >
+                votings[_votingKey].voteOnBScore;
+        } else {
+            return
+                votings[_votingKey].voteOnBScore >
+                votings[_votingKey].voteOnAScore;
+        }
+    }
+
+    function isVotingWithTargetBudgetWon(
+        bytes32 _votingKey
+    ) public returns (bool) {
+        return isVotingWon(_votingKey, true);
+    }
+
+    function getVoting(bytes32 _votingKey) public view returns (Voting memory) {
+        return votings[_votingKey];
     }
 
     function getVotingKeysLength() public view returns (uint256) {

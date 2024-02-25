@@ -186,6 +186,7 @@ describe("BVS_Voting", () => {
                 false,
                 votingKey,
                 0,
+                0,
                 accounts[1].address,
                 'content-ipfs-hash',
                 newVotingStartDate,

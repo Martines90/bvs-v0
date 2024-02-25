@@ -6,7 +6,7 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { Roles, getPermissionDenyReasonMessage, sendValuesInEth } from '../../utils/helpers';
 
 
-describe("BVS", () => {
+describe("BVS main contract", () => {
     let bvs: BVS;
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
