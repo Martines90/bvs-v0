@@ -7,6 +7,7 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
+import { BytesLike } from 'ethers';
 
 const bytes32 = require('bytes32');
 
@@ -70,14 +71,15 @@ describe("BVS_Voting", () => {
 
             await admin.firstVotingCycleStartDate(), BigInt(firstVotingCycleStartDate)
 
-            await admin.grantPoliticalActorRole(accounts[0].address, 2);
+            await admin.grantPoliticalActorRole(accounts[1].address, 2);
 
+            const politicalActor = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(firstVotingCycleStartDate + 10 * TimeQuantities.DAY);
 
-            await admin.scheduleNewVoting('ipfs-hash',firstVotingCycleStartDate + 22 * TimeQuantities.DAY);
+            await startNewVoting(politicalActor, firstVotingCycleStartDate + 22 * TimeQuantities.DAY);
 
-            await assert.equal((await admin.votingCycleStartVoteCount(BigInt(0), accounts[0].address)), BigInt(1))
+            await assert.equal((await admin.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(1))
             await assert.equal(await admin.getVotinCycleIndexesSize(), BigInt(1))
             
 
@@ -104,7 +106,8 @@ describe("BVS_Voting", () => {
             await expect(
                 bvsVotingAccount2.scheduleNewVoting(
                     'ipfs-hash',
-                    NOW
+                    NOW,
+                    0
                 )
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
         })
@@ -114,7 +117,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate - 1);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate)).to.be.revertedWith('Start new voting period is not yet active');
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate, 0)).to.be.revertedWith('Start new voting period is not yet active');
         })
         
         it('should revert when new voting not scheduled 10 days ahead from now', async () => {
@@ -122,7 +125,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.HOUR);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME)).to.be.revertedWith('New voting has to be scheduled 10 days later from now');
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME, 0)).to.be.revertedWith('New voting has to be scheduled 10 days later from now');
         })
 
         it('should revert when new voting scheduled later than one VOTING_CYCLE_INTERVAL', async () => {
@@ -130,7 +133,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.HOUR);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY)).to.be.revertedWith('New voting start date can only be scheduled within 30 days ahead');
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY, 0)).to.be.revertedWith('New voting start date can only be scheduled within 30 days ahead');
         })
 
 
@@ -139,7 +142,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL - NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY)).to.be.revertedWith(
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY, 0)).to.be.revertedWith(
                 "You can't start new voting 10 days or less before the ongoing voting cycle ends"
             );
         })
@@ -151,15 +154,15 @@ describe("BVS_Voting", () => {
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(0))
 
-            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY);
+            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY, 0);
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(1))
 
-            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY);
+            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY, 0);
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(2))
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY)).to.be.revertedWith(
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY, 0)).to.be.revertedWith(
                 "You ran out of start new voting credits in this voting cycle"
             );
         })
@@ -170,7 +173,8 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            await startNewVoting(politicalActor, newVotingStartDate);
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(1));
 
@@ -181,8 +185,9 @@ describe("BVS_Voting", () => {
                 false,
                 false,
                 votingKey,
+                0,
                 accounts[1].address,
-                'ipfs-hash',
+                'content-ipfs-hash',
                 newVotingStartDate,
                 0,
                 0,
@@ -197,12 +202,11 @@ describe("BVS_Voting", () => {
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(0))
 
-            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY);
+            await startNewVoting(politicalActor, mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY)
 
             await time.increaseTo(mockFirstVotingCycleStartDate + 31 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 42 * TimeQuantities.DAY);
-
+            await startNewVoting(politicalActor, mockFirstVotingCycleStartDate + 42 * TimeQuantities.DAY)
 
             await assert.equal(await politicalActor.getVotinCycleIndexesSize(), BigInt(2))
             await assert.equal(await politicalActor.votingCycleIndexes(0), BigInt(0))
@@ -224,7 +228,8 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            await startNewVoting(politicalActor, newVotingStartDate)
         })
 
         it('should revert when account has no POLITICAL_ACTOR role', async () => {
@@ -287,7 +292,8 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+ 
+            await startNewVoting(politicalActor, newVotingStartDate)
         })
 
         it('should revert when account has no ADMINISTRATOR role', async () => {
@@ -331,7 +337,8 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            await startNewVoting(politicalActor, newVotingStartDate)
         })
 
         it('should revert when account has no ADMINISTRATOR role', async () => {
@@ -340,14 +347,14 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer'))
+                account2.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32({ input: 'hashed-answer'}))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when voting content check quiz ipfs not yet assigned', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await expect(admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer'))).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
                 "No voting content check quiz ipfs assigned yet"
             );
         })
@@ -357,11 +364,11 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer-1'))
-            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32('hashed-answer-2'))
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32({ input: 'hashed-answer-1'}))
+            await admin.addKeccak256HashedAnswerToVotingContent(votingKey, bytes32({ input: 'hashed-answer-2'}))
 
-            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 0)), bytes32('hashed-answer-1'));
-            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 1)), bytes32('hashed-answer-1'));
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 0)), bytes32({ input: 'hashed-answer-1'}));
+            assert.equal((await politicalActor.votingContentReadCheckAnswers(votingKey, 1)), bytes32({ input: 'hashed-answer-2'}));
         })
     })
 
@@ -382,7 +389,8 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -493,7 +501,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
         })
 
         it('should revert when account has no POLITICAL_ACTOR role', async () => {
@@ -556,7 +564,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -608,7 +616,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -621,12 +629,12 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))
+                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
                 "First article content check ipfs hash has to be assigned"
             );
         })
@@ -634,9 +642,9 @@ describe("BVS_Voting", () => {
         it('should add new quiz question answer', async () => {
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
              
-            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32('hashed-answer'))
+            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
 
-            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), bytes32('hashed-answer'))
+            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
          })
     })
 
@@ -657,7 +665,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -727,7 +735,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -794,7 +802,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -807,12 +815,12 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))
+                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article response has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))).to.be.revertedWith(
+            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
                 "First article response content check ipfs hash has to be assigned"
             );
         })
@@ -820,9 +828,9 @@ describe("BVS_Voting", () => {
         it('should add new quiz question answer', async () => {
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
              
-            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32('hashed-answer'))
+            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
 
-            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), bytes32('hashed-answer'))
+            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
          })
     })
 
@@ -843,7 +851,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
 
             newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await politicalActor.scheduleNewVoting('ipfs-hash', newVotingStartDate);
+            await startNewVoting(politicalActor, newVotingStartDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -924,7 +932,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - (VOTING_DURATION - 2 * TimeQuantities.DAY));
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -967,7 +975,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -1019,7 +1027,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -1070,7 +1078,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -1136,7 +1144,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
 
-            await politicalActor.scheduleNewVoting('content-ipfs-hash', farFutureDate);
+            await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -1160,6 +1168,18 @@ describe("BVS_Voting", () => {
             await expect(
                 account2.completeArticleReadQuiz(votingKey, articleKey, [])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+
+        it('should revert when article quiz already completed', async () => {
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+
+            await completeArticle(admin, accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.completeArticleReadQuiz(votingKey, articleKey, [])).to.be.revertedWith(
+                "You already completed this article quiz"
+            );
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
@@ -1227,6 +1247,18 @@ describe("BVS_Voting", () => {
             await expect(
                 account2.completeArticleResponseQuiz(votingKey, articleKey, [])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+        })
+
+        it('should revert when citizen already completed the quiz', async () => {
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+
+            await completeArticleResponse(admin, accounts[1])
+
+            const account = await bvsVoting.connect(accounts[1]);
+
+            await expect(account.completeArticleResponseQuiz(votingKey, articleKey, [])).to.be.revertedWith(
+                "You already completed this article response quiz"
+            );
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
@@ -1435,6 +1467,35 @@ describe("BVS_Voting", () => {
             await account.voteOnVoting(votingKey, true);
 
             assert.equal((await account.votings(votingKey)).voteOnAScore, BigInt(MIN_VOTE_SCORE + 42));
+        })
+    })
+
+    describe("helper functions", () => {
+        describe("isBytes32ArrayContains", async () => {
+            it("should return false when bytes32 value is not in the array", async () => {
+                assert.equal(await bvsVoting.isBytes32ArrayContains([
+                    bytes32({ input: 'test-1' }),
+                ], bytes32({ input: 'test-2' })), false);
+            });
+
+            it("should return true when bytes32 value is in the array", async () => {
+                assert.equal(await bvsVoting.isBytes32ArrayContains([
+                    bytes32({ input: 'test-1' }),
+                    bytes32({ input: 'test-2' })
+                ], bytes32({ input: 'test-2' })), true);
+            });
+        })
+
+        describe("calculateExtraVotingScore", async () => {
+            it("should return proper result", async () => {
+                assert.equal(await bvsVoting.calculateExtraVotingScore(0, 0, 0, 0), BigInt(0));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(0, 1, 0, 1), BigInt(7));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(1, 1, 1, 1), BigInt(35));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(2, 2, 2, 2), BigInt(70));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(2, 3, 1, 1), BigInt(65));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(8, 3, 4, 1), BigInt(116));
+                assert.equal(await bvsVoting.calculateExtraVotingScore(22, 8, 0, 0), BigInt(270));
+            });
         })
     })
 })

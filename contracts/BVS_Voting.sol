@@ -47,6 +47,7 @@ contract BVS_Voting is BVS_Roles {
         bool approved;
         bool cancelled;
         bytes32 key;
+        uint256 requiredBudget;
         address creator;
         string contentIpfsHash;
         uint256 startDate; // 10 days before start date critics can appear
@@ -118,7 +119,8 @@ contract BVS_Voting is BVS_Roles {
 
     function scheduleNewVoting(
         string calldata _contentIpfsHash,
-        uint256 _startDate
+        uint256 _startDate,
+        uint256 _requiredBudget
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
             firstVotingCycleStartDate < block.timestamp &&
@@ -159,6 +161,7 @@ contract BVS_Voting is BVS_Roles {
             )
         );
 
+        votings[_votingKey].requiredBudget = _requiredBudget;
         votings[_votingKey].key = _votingKey;
         votings[_votingKey].creator = msg.sender;
         votings[_votingKey].contentIpfsHash = _contentIpfsHash;
@@ -212,9 +215,7 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
-            keccak256(
-                bytes(votings[_votingKey].votingContentCheckQuizIpfsHash)
-            ) != keccak256(bytes("")),
+            !isEmptyString(votings[_votingKey].votingContentCheckQuizIpfsHash),
             "No voting content check quiz ipfs assigned yet"
         );
 
@@ -318,12 +319,10 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
-            keccak256(
-                bytes(
-                    proConArticles[_votingKey][_articleKey]
-                        .articleContentCheckQuizIpfsHash
-                )
-            ) != keccak256(bytes("")),
+            !isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .articleContentCheckQuizIpfsHash
+            ),
             "First article content check ipfs hash has to be assigned"
         );
         articleContentReadCheckAnswers[_articleKey].push(
@@ -377,12 +376,10 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _keccak256HashedAnswer
     ) public onlyRole(ADMINISTRATOR) {
         require(
-            keccak256(
-                bytes(
-                    proConArticles[_votingKey][_articleKey]
-                        .responseContentCheckQuizIpfsHash
-                )
-            ) != keccak256(bytes("")),
+            !isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .responseContentCheckQuizIpfsHash
+            ),
             "First article response content check ipfs hash has to be assigned"
         );
 
@@ -404,12 +401,10 @@ contract BVS_Voting is BVS_Roles {
             "Article not exists"
         );
         require(
-            keccak256(
-                bytes(
-                    proConArticles[_votingKey][_articleKey]
-                        .responseStatementIpfsHash
-                )
-            ) != keccak256(bytes("")),
+            !isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .responseStatementIpfsHash
+            ),
             "No response belongs to this article"
         );
         require(
@@ -445,10 +440,7 @@ contract BVS_Voting is BVS_Roles {
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
         require(
-            !isBytes32ArrayContains(
-                articlesResponseCompleted[msg.sender],
-                _articleKey
-            ),
+            !isBytes32ArrayContains(articlesCompleted[msg.sender], _articleKey),
             "You already completed this article quiz"
         );
         uint8[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
@@ -769,5 +761,9 @@ contract BVS_Voting is BVS_Roles {
             }
         }
         return false;
+    }
+
+    function isEmptyString(string memory _string) public pure returns (bool) {
+        return keccak256(bytes(_string)) == keccak256(bytes(""));
     }
 }

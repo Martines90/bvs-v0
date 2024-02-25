@@ -122,8 +122,8 @@ export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votin
 
 // startNewVotingWithQuizAndContentCheckAnswers
 
-export const startNewVoting = async (politicalActor: BVS_Voting, startDate: number) => {
-    await politicalActor.scheduleNewVoting('content-ipfs-hash', startDate);
+export const startNewVoting = async (politicalActor: BVS_Voting, startDate: number, requiredBudget = BigInt(0)) => {
+    await politicalActor.scheduleNewVoting('content-ipfs-hash', startDate, requiredBudget);
 }
 
 export const addQuizAndContentCheckAnswersToVoting = async (admin: BVS_Voting) => {
