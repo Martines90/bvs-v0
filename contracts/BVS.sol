@@ -3,9 +3,6 @@
 // pragma
 pragma solidity ^0.8.9;
 
-// imports
-import "@thirdweb-dev/contracts/extension/Permissions.sol";
-
 import "./BVS_Funding.sol";
 import "./BVS_Voting.sol";
 import "./BVS_Elections.sol";
@@ -17,30 +14,26 @@ import "./BVS_Elections.sol";
  * @dev
  */
 
-contract BVS is BVS_Roles, BVS_Funding {
-    BVS_Elections public immutable cBVS_Elections;
-    BVS_Voting public immutable cBVS_Voting;
+contract BVS is BVS_Voting, BVS_Funding {
+    constructor(address priceFeed) BVS_Voting() BVS_Funding(priceFeed) {}
 
-    constructor(address priceFeed) BVS_Roles() BVS_Funding(priceFeed) {
-        cBVS_Elections = new BVS_Elections();
-        cBVS_Voting = new BVS_Voting();
-    }
-
-    function unlockTenderBudget(
+    function unlockVotingBudget(
         bytes32 _votingKey
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
-            cBVS_Voting.isVotingWithTargetBudgetWon(_votingKey),
+            isVotingWon(_votingKey, true),
             "Voting did not received the majority of support"
         );
         require(
-            cBVS_Voting.getVoting(_votingKey).creator == msg.sender,
+            getVoting(_votingKey).creator == msg.sender,
             "This is not your voting"
         );
 
         (bool callSuccess, ) = payable(msg.sender).call{
-            value: cBVS_Voting.getVoting(_votingKey).requiredBudget
-        }(""); // address(this).balance
+            value: getVoting(_votingKey).budget
+        }("");
         require(callSuccess, "Call failed");
+
+        votings[_votingKey].budget = 0; // make sure no more money can be requested
     }
 }

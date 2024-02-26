@@ -54,7 +54,7 @@ describe("BVS_Roles", () => {
 
             await bvsRolesAccount1.grantAdministratorRole(accounts[2])
 
-            await expect(bvsRolesAccount1.grantAdministratorRole(accounts[2])).to.be.revertedWith('Admin role to this address already granted');
+            await expect(bvsRolesAccount1.grantAdministratorRole(accounts[2])).to.be.revertedWith('Admin role already granted');
         });
     })
 
@@ -88,7 +88,7 @@ describe("BVS_Roles", () => {
 
             await bvsRolesAccount1.grantCitizenRole(accounts[2])
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWith('Citizen role to this address already granted');
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWith('Citizen role already granted');
         });
     })
 })

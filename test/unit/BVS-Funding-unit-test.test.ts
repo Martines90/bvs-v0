@@ -13,8 +13,6 @@ describe("BVS_Funding", () => {
 
     // const conversionEthToUsdRate = INITIAL_PRICE / Math.pow(10, DECIMALS);
 
-
-
     beforeEach(async () => {
         accounts = await ethers.getSigners()
         deployer = accounts[0]
@@ -90,17 +88,11 @@ describe("BVS_Funding", () => {
             assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.small), BigInt(FundingSizeLevels.SMALL))
             assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.medium), BigInt(FundingSizeLevels.MEDIUM))
             assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.large), BigInt(FundingSizeLevels.LARGE))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xlarge), BigInt(FundingSizeLevels.XLARGE))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xxlarge), BigInt(FundingSizeLevels.XXLARGE))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xxxlarge), BigInt(FundingSizeLevels.XXXLARGE))
         })
 
         it("should return the correct fund size levels when amount in usd just below the next level minimum", async () => {
             assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.medium - BigInt(1)), BigInt(FundingSizeLevels.SMALL))
             assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.large - BigInt(1)), BigInt(FundingSizeLevels.MEDIUM))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xlarge - BigInt(1)), BigInt(FundingSizeLevels.LARGE))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xxlarge - BigInt(1)), BigInt(FundingSizeLevels.XLARGE))
-            assert.equal(await bvsFunding.getfundSizeLevel(valuesInUsd.xxxlarge - BigInt(1)), BigInt(FundingSizeLevels.XXLARGE))
         })
     })
 });

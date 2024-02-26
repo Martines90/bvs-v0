@@ -16,10 +16,7 @@ export const usdWithDecimals = (amountInUsd: number): bigint => {
 export enum FundingSizeLevels {
     SMALL = 0,
     MEDIUM = 1,
-    LARGE = 2,
-    XLARGE = 3,
-    XXLARGE = 4,
-    XXXLARGE = 5
+    LARGE = 2
 }
 
 const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
@@ -44,18 +41,15 @@ export enum TimeQuantities {
 }
 
 export const sendValuesInEth = {
-    small: usdToEther(100),
-    medium: usdToEther(1000),
-    large: usdToEther(10000),
+    small: usdToEther(1000),
+    medium: usdToEther(10000),
+    large: usdToEther(100000),
 }
 
 export const valuesInUsd = {
-    small: usdWithDecimals(100),
-    medium: usdWithDecimals(1000),
-    large: usdWithDecimals(10000),
-    xlarge: usdWithDecimals(100000),
-    xxlarge: usdWithDecimals(500000),
-    xxxlarge: usdWithDecimals(1000000),
+    small: usdWithDecimals(1000),
+    medium: usdWithDecimals(10000),
+    large: usdWithDecimals(100000)
 }
 
 export const mockHashedAnwers = [
@@ -79,10 +73,9 @@ export const getPermissionDenyReasonMessage = (accountAddress: string, roleKecca
 
 // Elections
 
-export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], contract: any) => {
-    const deployer = await contract.connect(accounts[0]);
+export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], admin: any) => {
     for (let i = 1; accounts.length > i; i++) {
-        await deployer.grantCitizenRole(accounts[i]);
+        await admin.grantCitizenRole(accounts[i]);
     }
 }
 
@@ -122,12 +115,13 @@ export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votin
 
 // startNewVotingWithQuizAndContentCheckAnswers
 
-export const startNewVoting = async (politicalActor: BVS_Voting, startDate: number, requiredBudget = BigInt(0)) => {
-    await politicalActor.scheduleNewVoting('content-ipfs-hash', startDate, requiredBudget);
+export const startNewVoting = async (politicalActor: BVS_Voting, startDate: number, budget = BigInt(0)) => {
+    await politicalActor.scheduleNewVoting('content-ipfs-hash', startDate, budget);
 }
 
 export const addQuizAndContentCheckAnswersToVoting = async (admin: BVS_Voting) => {
     const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
+
     await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
     await assignAnwersToVoting(admin, votingKey, 10)

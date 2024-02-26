@@ -215,67 +215,7 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe('cancelMyVoting', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
-        let politicalActor: BVS_Voting
 
-        beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
-
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
-
-            politicalActor = await bvsVoting.connect(accounts[1]);
-
-            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
-
-            const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-
-            await startNewVoting(politicalActor, newVotingStartDate)
-        })
-
-        it('should revert when account has no POLITICAL_ACTOR role', async () => {
-
-            const votingKey = await politicalActor.votingKeys(0);
-
-            const account2 = await bvsVoting.connect(accounts[2]);
-
-            await expect(
-                account2.cancelMyVoting(votingKey)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
-        })
-
-        it('should revert when voting not belongs to the account', async () => {
-            admin.grantPoliticalActorRole(accounts[2], 2);
-
-            const votingKey = await politicalActor.votingKeys(0);
-
-            const politicalActor2 = await bvsVoting.connect(accounts[2]);
-
-            await expect(politicalActor2.cancelMyVoting(votingKey)).to.be.revertedWith(
-                "Only the creator of the voting is allowed to cancel it"
-            );
-        })
-
-        it('should revert when voting start date already passed', async () => {
-            const votingKey = await politicalActor.votingKeys(0);
-
-            await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_DURATION - TimeQuantities.DAY);
-
-            await expect(politicalActor.cancelMyVoting(votingKey)).to.be.revertedWith(
-                "Your voting start date already passed"
-            );
-        })
-
-        it('should cancel voting', async () => {
-            const votingKey = await politicalActor.votingKeys(0);
-
-            await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_DURATION - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
-
-            await politicalActor.cancelMyVoting(votingKey)
-
-            assert.equal((await politicalActor.votings(votingKey)).cancelled, true);
-        })
-    })
 
     describe('assignQuizIpfsHashToVoting', () => {
         const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
@@ -413,7 +353,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(newVotingStartDate);
 
             await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
-                "Voting can only be approved before it's start date"
+                "Voting already started"
             );
         })
 
@@ -636,7 +576,7 @@ describe("BVS_Voting", () => {
 
         it('should revert when article has no assigned content check quiz yet', async () => {
             await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
-                "First article content check ipfs hash has to be assigned"
+                "Article content check ipfs not assigned yet"
             );
         })
 
@@ -703,7 +643,7 @@ describe("BVS_Voting", () => {
             time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
 
             await expect(admin.approveArticle(votingKey, articleKey)).to.be.revertedWith(
-                "You have to add at least the minimum number of content read check answers to this article"
+                "No enough content read check answers added"
             );
         })
 
@@ -771,7 +711,7 @@ describe("BVS_Voting", () => {
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
 
             await expect(politicalActor2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWith(
-                "You can respond only articles what are related to your own votings"
+                "This article not related to your voting"
             );
         })
 
@@ -822,7 +762,7 @@ describe("BVS_Voting", () => {
 
         it('should revert when article response has no assigned content check quiz yet', async () => {
             await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
-                "First article response content check ipfs hash has to be assigned"
+                "Content check ipfs not assigned"
             );
         })
 
@@ -899,7 +839,7 @@ describe("BVS_Voting", () => {
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
 
             await expect(admin.approveArticleResponse(votingKey, articleKey)).to.be.revertedWith(
-                "No response belongs to this article"
+                "No response added yet"
             );
         })
 
@@ -1367,7 +1307,7 @@ describe("BVS_Voting", () => {
             await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
 
             await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
-                "You have to first complete voting related content check quiz"
+                "Content check quiz not completed"
             );
         })
 
@@ -1412,6 +1352,7 @@ describe("BVS_Voting", () => {
 
             assert.equal((await admin.votings(votingKey)).voteOnAScore, BigInt(0));
             assert.equal((await admin.votings(votingKey)).voteOnBScore, BigInt(0));
+            assert.equal((await admin.votings(votingKey)).voteCount, BigInt(0));
             
             await completeVoting(admin, accounts[1]);
             await completeVoting(admin, accounts[2]);
@@ -1423,6 +1364,7 @@ describe("BVS_Voting", () => {
 
             assert.equal((await admin.votings(votingKey)).voteOnAScore, BigInt(MIN_VOTE_SCORE));
             assert.equal((await admin.votings(votingKey)).voteOnBScore, BigInt(2 * MIN_VOTE_SCORE));
+            assert.equal((await admin.votings(votingKey)).voteCount, BigInt(3));
         })
 
         it('should count citizen voting score properly when citizen completed related articles', async () => {
@@ -1468,6 +1410,7 @@ describe("BVS_Voting", () => {
             await account.voteOnVoting(votingKey, true);
 
             assert.equal((await account.votings(votingKey)).voteOnAScore, BigInt(MIN_VOTE_SCORE + 42));
+            assert.equal((await admin.votings(votingKey)).voteCount, BigInt(1));
         })
     })
 
@@ -1487,7 +1430,7 @@ describe("BVS_Voting", () => {
             });
         })
 
-        describe("calculateExtraVotingScore", async () => {
+       /* describe("calculateExtraVotingScore", async () => {
             it("should return proper result", async () => {
                 assert.equal(await bvsVoting.calculateExtraVotingScore(0, 0, 0, 0), BigInt(0));
                 assert.equal(await bvsVoting.calculateExtraVotingScore(0, 1, 0, 1), BigInt(7));
@@ -1497,6 +1440,6 @@ describe("BVS_Voting", () => {
                 assert.equal(await bvsVoting.calculateExtraVotingScore(8, 3, 4, 1), BigInt(116));
                 assert.equal(await bvsVoting.calculateExtraVotingScore(22, 8, 0, 0), BigInt(270));
             });
-        })
+        }) */
     })
 })

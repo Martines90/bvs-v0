@@ -47,7 +47,7 @@ contract BVS_Roles is Permissions {
     ) public onlyRole(SUPER_ADMINISTRATOR) {
         require(
             !hasRole(POLITICAL_ACTOR, account),
-            "Political actor role to this address alredy granted"
+            "Political actor role alredy granted"
         );
         _setupRole(POLITICAL_ACTOR, account);
         politicalActorProfiles[account] = PoliticalActorProfile(
@@ -60,19 +60,13 @@ contract BVS_Roles is Permissions {
     function grantAdministratorRole(
         address account
     ) public onlyRole(SUPER_ADMINISTRATOR) {
-        require(
-            !hasRole(ADMINISTRATOR, account),
-            "Admin role to this address already granted"
-        );
+        require(!hasRole(ADMINISTRATOR, account), "Admin role already granted");
         _setupRole(ADMINISTRATOR, account);
         admins.push(account);
     }
 
     function grantCitizenRole(address account) public onlyRole(ADMINISTRATOR) {
-        require(
-            !hasRole(CITIZEN, account),
-            "Citizen role to this address already granted"
-        );
+        require(!hasRole(CITIZEN, account), "Citizen role already granted");
         _setupRole(CITIZEN, account);
         citizens.push(account);
     }

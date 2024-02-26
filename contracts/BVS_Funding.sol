@@ -20,18 +20,12 @@ contract BVS_Funding {
     enum FundingSizeLevels {
         SMALL,
         MEDIUM,
-        LARGE,
-        XLARGE,
-        XXLARGE,
-        XXXLARGE
+        LARGE
     }
     struct FundSizes {
         uint256 small;
         uint256 medium;
         uint256 large;
-        uint256 xlarge;
-        uint256 xxlarge;
-        uint256 xxxlarge;
     }
     struct FunderTicket {
         address account;
@@ -44,14 +38,7 @@ contract BVS_Funding {
     uint256 public constant DECIMALS = 10 ** 18;
 
     FundSizes fundSizes =
-        FundSizes(
-            DECIMALS * 100,
-            DECIMALS * 1000,
-            DECIMALS * 10000,
-            DECIMALS * 100000,
-            DECIMALS * 500000,
-            DECIMALS * 1000000
-        );
+        FundSizes(DECIMALS * 1000, DECIMALS * 10000, DECIMALS * 100000);
 
     AggregatorV3Interface public immutable priceFeed;
 
@@ -86,15 +73,6 @@ contract BVS_Funding {
     function getfundSizeLevel(
         uint256 amount
     ) public view returns (FundingSizeLevels) {
-        if (amount >= fundSizes.xxxlarge) {
-            return FundingSizeLevels.XXXLARGE;
-        }
-        if (amount >= fundSizes.xxlarge) {
-            return FundingSizeLevels.XXLARGE;
-        }
-        if (amount >= fundSizes.xlarge) {
-            return FundingSizeLevels.XLARGE;
-        }
         if (amount >= fundSizes.large) {
             return FundingSizeLevels.LARGE;
         }

@@ -7,6 +7,7 @@ pragma solidity ^0.8.9;
 import "@thirdweb-dev/contracts/extension/Permissions.sol";
 
 import "./BVS_Roles.sol";
+import "./BVS_Helpers.sol";
 
 import "hardhat/console.sol";
 
@@ -48,7 +49,7 @@ contract BVS_Voting is BVS_Roles {
         bool approved;
         bool cancelled;
         bytes32 key;
-        uint256 requiredBudget;
+        uint256 budget;
         uint256 voteCount;
         address creator;
         string contentIpfsHash;
@@ -96,7 +97,11 @@ contract BVS_Voting is BVS_Roles {
     mapping(address => bytes32[]) public articlesCompleted;
     mapping(address => bytes32[]) public articlesResponseCompleted;
 
-    constructor() BVS_Roles() {}
+    BVS_Helpers public immutable bvsHelpers;
+
+    constructor() BVS_Roles() {
+        bvsHelpers = new BVS_Helpers();
+    }
 
     function setFirstVotingCycleStartDate(
         uint256 _firstVotingCycleStartDate
@@ -122,7 +127,7 @@ contract BVS_Voting is BVS_Roles {
     function scheduleNewVoting(
         string calldata _contentIpfsHash,
         uint256 _startDate,
-        uint256 _requiredBudget
+        uint256 _budget
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
             firstVotingCycleStartDate < block.timestamp &&
@@ -163,7 +168,7 @@ contract BVS_Voting is BVS_Roles {
             )
         );
 
-        votings[_votingKey].requiredBudget = _requiredBudget;
+        votings[_votingKey].budget = _budget;
         votings[_votingKey].key = _votingKey;
         votings[_votingKey].creator = msg.sender;
         votings[_votingKey].contentIpfsHash = _contentIpfsHash;
@@ -184,24 +189,6 @@ contract BVS_Voting is BVS_Roles {
         }
 
         votingKeys.push(_votingKey);
-    }
-
-    /**
-     * If you cancel your voting you can't get back your voting credit
-     * @param _votingKey - identifies a registered voting
-     */
-    function cancelMyVoting(
-        bytes32 _votingKey
-    ) public onlyRole(POLITICAL_ACTOR) {
-        require(
-            votings[_votingKey].creator == msg.sender,
-            "Only the creator of the voting is allowed to cancel it"
-        );
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Your voting start date already passed"
-        );
-        votings[_votingKey].cancelled = true;
     }
 
     function assignQuizIpfsHashToVoting(
@@ -225,10 +212,7 @@ contract BVS_Voting is BVS_Roles {
     }
 
     function approveVoting(bytes32 _votingKey) public onlyRole(ADMINISTRATOR) {
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Voting can only be approved before it's start date"
-        );
+        votingShouldNotYetStarted(_votingKey);
         require(
             votings[_votingKey].startDate -
                 APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT <
@@ -238,7 +222,7 @@ contract BVS_Voting is BVS_Roles {
         require(
             votingContentReadCheckAnswers[_votingKey].length >=
                 MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "You have to add at least the minimum number of content read check quiz answers"
+            "No enough content read quiz answer added"
         );
         // make sure the creator of the voting responded for all the ciritcal articles
         bool isRespondedAllTheCritics = true;
@@ -302,10 +286,7 @@ contract BVS_Voting is BVS_Roles {
         string memory _quizIpfsHash,
         bool assignToArticleContent
     ) public onlyRole(ADMINISTRATOR) {
-        require(
-            proConArticles[_votingKey][_articleKey].publisher != address(0),
-            "Article not exists"
-        );
+        articleShouldExists(_votingKey, _articleKey);
         if (assignToArticleContent) {
             proConArticles[_votingKey][_articleKey]
                 .articleContentCheckQuizIpfsHash = _quizIpfsHash;
@@ -325,7 +306,7 @@ contract BVS_Voting is BVS_Roles {
                 proConArticles[_votingKey][_articleKey]
                     .articleContentCheckQuizIpfsHash
             ),
-            "First article content check ipfs hash has to be assigned"
+            "Article content check ipfs not assigned yet"
         );
         articleContentReadCheckAnswers[_articleKey].push(
             _keccak256HashedAnswer
@@ -336,18 +317,12 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         bytes32 _articleKey
     ) public onlyRole(ADMINISTRATOR) {
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Voting already started"
-        );
-        require(
-            proConArticles[_votingKey][_articleKey].publisher != address(0),
-            "Article not exists"
-        );
+        votingShouldNotYetStarted(_votingKey);
+        articleShouldExists(_votingKey, _articleKey);
         require(
             articleContentReadCheckAnswers[_articleKey].length >=
                 MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "You have to add at least the minimum number of content read check answers to this article"
+            "No enough content read check answers added"
         );
         proConArticles[_votingKey][_articleKey].isArticleApproved = true;
     }
@@ -357,15 +332,12 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _proConArticleKey,
         string memory _ipfsHash
     ) public onlyRole(POLITICAL_ACTOR) {
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Voting already started"
-        );
+        votingShouldNotYetStarted(_votingKey);
 
         require(
             votings[proConArticles[_votingKey][_proConArticleKey].votingKey]
                 .creator == msg.sender,
-            "You can respond only articles what are related to your own votings"
+            "This article not related to your voting"
         );
 
         proConArticles[_votingKey][_proConArticleKey]
@@ -382,7 +354,7 @@ contract BVS_Voting is BVS_Roles {
                 proConArticles[_votingKey][_articleKey]
                     .responseContentCheckQuizIpfsHash
             ),
-            "First article response content check ipfs hash has to be assigned"
+            "Content check ipfs not assigned"
         );
 
         articleContentResponseReadCheckAnswers[_articleKey].push(
@@ -394,25 +366,19 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         bytes32 _articleKey
     ) public onlyRole(ADMINISTRATOR) {
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Voting already started"
-        );
-        require(
-            proConArticles[_votingKey][_articleKey].publisher != address(0),
-            "Article not exists"
-        );
+        votingShouldNotYetStarted(_votingKey);
+        articleShouldExists(_votingKey, _articleKey);
         require(
             !isEmptyString(
                 proConArticles[_votingKey][_articleKey]
                     .responseStatementIpfsHash
             ),
-            "No response belongs to this article"
+            "No response added yet"
         );
         require(
             articleContentResponseReadCheckAnswers[_articleKey].length >=
                 MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "You have to add at least the minimum number of content response read check answers to this article"
+            "No enough content check answers"
         );
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
@@ -508,7 +474,7 @@ contract BVS_Voting is BVS_Roles {
         // check if voting content check quiz completed
         require(
             votes[msg.sender][_votingKey].isContentCompleted,
-            "You have to first complete voting related content check quiz"
+            "Content check quiz not completed"
         );
         // check if citizen already voted
         require(
@@ -558,7 +524,7 @@ contract BVS_Voting is BVS_Roles {
             }
         }
 
-        voteScore += calculateExtraVotingScore(
+        voteScore += bvsHelpers.calculateExtraVotingScore(
             numOfVoteOnACompletedArticleValue,
             numOfVoteOnBCompletedArticleValue,
             numOfVoteOnACompletedResponseValue,
@@ -690,62 +656,10 @@ contract BVS_Voting is BVS_Roles {
         return questionsToAsk;
     }
 
-    function calculateExtraVotingScore(
-        uint _numOfVoteOnACompletedArticleValue,
-        uint _numOfVoteOnBCompletedArticleValue,
-        uint _numOfVoteOnACompletedResponseValue,
-        uint _numOfVoteOnBCompletedResponseValue
-    ) public pure returns (uint) {
-        uint extraVoteScore = 0;
-
-        uint noPairArticleCompleteCount = 0;
-
-        if (
-            _numOfVoteOnACompletedArticleValue >
-            _numOfVoteOnBCompletedArticleValue
-        ) {
-            noPairArticleCompleteCount = (_numOfVoteOnACompletedArticleValue -
-                _numOfVoteOnBCompletedArticleValue);
-        } else {
-            noPairArticleCompleteCount = (_numOfVoteOnBCompletedArticleValue -
-                _numOfVoteOnACompletedArticleValue);
-        }
-
-        extraVoteScore +=
-            ((_numOfVoteOnACompletedArticleValue +
-                _numOfVoteOnBCompletedArticleValue -
-                noPairArticleCompleteCount) / 2) *
-            25 +
-            (noPairArticleCompleteCount * 5);
-
-        // add the balanced way calculated scores after completed responses
-        uint noPairResponseCompleteCount = 0;
-
-        if (
-            _numOfVoteOnACompletedResponseValue >
-            _numOfVoteOnBCompletedResponseValue
-        ) {
-            noPairResponseCompleteCount = (_numOfVoteOnACompletedResponseValue -
-                _numOfVoteOnBCompletedResponseValue);
-        } else {
-            noPairResponseCompleteCount = (_numOfVoteOnBCompletedResponseValue -
-                _numOfVoteOnACompletedResponseValue);
-        }
-
-        extraVoteScore +=
-            ((_numOfVoteOnACompletedResponseValue +
-                _numOfVoteOnBCompletedResponseValue -
-                noPairResponseCompleteCount) / 2) *
-            10 +
-            (noPairResponseCompleteCount * 2);
-
-        return extraVoteScore;
-    }
-
     function isVotingWon(
         bytes32 _votingKey,
         bool _isAWinExpected
-    ) public returns (bool) {
+    ) public view returns (bool) {
         require(
             votings[_votingKey].startDate + VOTING_DURATION < block.timestamp,
             "Voting is not yet started or it is already ongoing"
@@ -754,7 +668,7 @@ contract BVS_Voting is BVS_Roles {
         require(
             (votings[_votingKey].voteCount * 100) / citizens.length >
                 MIN_PERCENTAGE_OF_VOTES,
-            "The receieved number of votes is less than the required minimum"
+            "No enough vote received"
         );
         if (_isAWinExpected) {
             return
@@ -767,10 +681,21 @@ contract BVS_Voting is BVS_Roles {
         }
     }
 
-    function isVotingWithTargetBudgetWon(
-        bytes32 _votingKey
-    ) public returns (bool) {
-        return isVotingWon(_votingKey, true);
+    function articleShouldExists(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) public view {
+        require(
+            proConArticles[_votingKey][_articleKey].publisher != address(0),
+            "Article not exists"
+        );
+    }
+
+    function votingShouldNotYetStarted(bytes32 _votingKey) public view {
+        require(
+            votings[_votingKey].startDate > block.timestamp,
+            "Voting already started"
+        );
     }
 
     function getVoting(bytes32 _votingKey) public view returns (Voting memory) {
