@@ -5,6 +5,8 @@ import "hardhat-deploy";
 
 import "dotenv/config";
 
+import 'hardhat-contract-sizer';
+
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "";
 const SEPOLIA_RPC_URL =
   process.env.SEPOLIA_RPC_URL ||

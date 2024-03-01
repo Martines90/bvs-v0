@@ -26,10 +26,18 @@ const bvs = async function (hre: HardhatRuntimeEnvironment) {
     log('deploy in progress...')
     log('price feed address:', ethUsdPriceFeedAddress)
 
+    const bvsElections = await deploy("BVS_Elections", {
+      from: deployer,
+        args: [],
+        log: true,
+        waitConfirmations: waitBlockConfirmations,
+    })
+
     const bvs = await deploy("BVS", {
       from: deployer,
         args: [
             ethUsdPriceFeedAddress,
+            bvsElections.address
         ],
         log: true,
         waitConfirmations: waitBlockConfirmations,

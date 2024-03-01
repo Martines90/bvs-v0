@@ -3,9 +3,6 @@
 // pragma
 pragma solidity ^0.8.9;
 
-// imports
-import "@thirdweb-dev/contracts/extension/Permissions.sol";
-
 import "./BVS_Roles.sol";
 import "./BVS_Helpers.sol";
 
@@ -19,19 +16,21 @@ import "hardhat/console.sol";
  */
 
 contract BVS_Voting is BVS_Roles {
-    uint256 public firstVotingCycleStartDate;
-    uint256 public constant VOTING_CYCLE_INTERVAL = 30 days;
-    uint256 public constant VOTING_DURATION = 14 days;
-    uint256 public constant APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT = 3 days;
-    uint256 public constant NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = 10 days;
+    uint public firstVotingCycleStartDate;
+    uint public constant VOTING_CYCLE_INTERVAL = 30 days;
+    uint public constant VOTING_DURATION = 14 days;
+    uint public constant APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT = 3 days;
+    uint public constant NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = 10 days;
 
-    uint16 public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
-    uint16 public constant VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
-    uint16 public constant ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
-    uint16 public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
+    uint public constant VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint public constant ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
-    uint8 public constant MIN_VOTE_SCORE = 5;
+    uint public constant MIN_VOTE_SCORE = 5;
     uint public constant MIN_PERCENTAGE_OF_VOTES = 10;
+
+    error NotYetActiveVoting();
 
     struct ProConArticle {
         bytes32 votingKey;
@@ -49,13 +48,13 @@ contract BVS_Voting is BVS_Roles {
         bool approved;
         bool cancelled;
         bytes32 key;
-        uint256 budget;
-        uint256 voteCount;
+        uint budget;
+        uint voteCount;
         address creator;
         string contentIpfsHash;
-        uint256 startDate; // 10 days before start date critics can appear
-        uint256 voteOnAScore;
-        uint256 voteOnBScore;
+        uint startDate; // 10 days before start date critics can appear
+        uint voteOnAScore;
+        uint voteOnBScore;
         string votingContentCheckQuizIpfsHash;
     }
 
@@ -72,15 +71,14 @@ contract BVS_Voting is BVS_Roles {
     mapping(bytes32 => bytes32[]) public votingContentReadCheckAnswers; // voting key => answers
 
     // track the number of votes political actors created during voting cycles
-    mapping(uint16 => mapping(address => uint16))
-        public votingCycleStartVoteCount;
+    mapping(uint => mapping(address => uint)) public votingCycleStartVoteCount;
 
     // track the number of articles published related to scheduled votings
-    mapping(address => mapping(bytes32 => uint16)) // political_actor =>  voting key => published articles count
+    mapping(address => mapping(bytes32 => uint)) // political_actor =>  voting key => published articles count
         public publishArticleToVotingsCount;
 
     // register the voting cycle indexes in order to clear votingCycleStartVoteCount data
-    uint16[] public votingCycleIndexes;
+    uint[] public votingCycleIndexes;
 
     // store votings
     mapping(bytes32 => Voting) public votings;
@@ -104,7 +102,7 @@ contract BVS_Voting is BVS_Roles {
     }
 
     function setFirstVotingCycleStartDate(
-        uint256 _firstVotingCycleStartDate
+        uint _firstVotingCycleStartDate
     ) public onlyRole(ADMINISTRATOR) {
         require(
             _firstVotingCycleStartDate > block.timestamp,
@@ -113,7 +111,7 @@ contract BVS_Voting is BVS_Roles {
         firstVotingCycleStartDate = _firstVotingCycleStartDate;
 
         // reset votingCycleStartVoteCount;
-        for (uint16 i = 0; i < votingCycleIndexes.length; i++) {
+        for (uint i = 0; i < votingCycleIndexes.length; i++) {
             for (uint u = 0; u < politicalActors.length; u++) {
                 delete votingCycleStartVoteCount[votingCycleIndexes[i]][
                     politicalActors[u]
@@ -121,13 +119,13 @@ contract BVS_Voting is BVS_Roles {
             }
         }
 
-        votingCycleIndexes = new uint16[](0);
+        votingCycleIndexes = new uint[](0);
     }
 
     function scheduleNewVoting(
         string calldata _contentIpfsHash,
-        uint256 _startDate,
-        uint256 _budget
+        uint _startDate,
+        uint _budget
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
             firstVotingCycleStartDate < block.timestamp &&
@@ -143,8 +141,8 @@ contract BVS_Voting is BVS_Roles {
             _startDate < block.timestamp + VOTING_CYCLE_INTERVAL,
             "New voting start date can only be scheduled within 30 days ahead"
         );
-        uint256 timePassed = block.timestamp - firstVotingCycleStartDate;
-        uint16 votingCycleCount = uint16(timePassed / VOTING_CYCLE_INTERVAL);
+        uint timePassed = block.timestamp - firstVotingCycleStartDate;
+        uint votingCycleCount = uint(timePassed / VOTING_CYCLE_INTERVAL);
 
         require(
             timePassed - votingCycleCount * VOTING_CYCLE_INTERVAL <
@@ -177,7 +175,7 @@ contract BVS_Voting is BVS_Roles {
         votings[_votingKey].voteOnBScore = 0;
 
         bool votingCycleIndexAlreadyAdded = false;
-        for (uint16 i = 0; i < votingCycleIndexes.length; i++) {
+        for (uint i = 0; i < votingCycleIndexes.length; i++) {
             if (votingCycleCount == votingCycleIndexes[i]) {
                 votingCycleIndexAlreadyAdded = true;
                 break;
@@ -226,7 +224,7 @@ contract BVS_Voting is BVS_Roles {
         );
         // make sure the creator of the voting responded for all the ciritcal articles
         bool isRespondedAllTheCritics = true;
-        uint256 articleKeysLength = articleKeys.length;
+        uint articleKeysLength = articleKeys.length;
 
         for (uint i = 0; i < articleKeysLength; i++) {
             if (proConArticles[_votingKey][articleKeys[i]].isArticleApproved) {
@@ -387,7 +385,7 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
-        uint8[] memory answerIndexes = getAccountVotingQuizAnswerIndexes(
+        uint[] memory answerIndexes = getAccountVotingQuizAnswerIndexes(
             _votingKey,
             msg.sender
         );
@@ -411,7 +409,7 @@ contract BVS_Voting is BVS_Roles {
             !isBytes32ArrayContains(articlesCompleted[msg.sender], _articleKey),
             "You already completed this article quiz"
         );
-        uint8[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
+        uint[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
             _votingKey,
             _articleKey,
             msg.sender
@@ -439,7 +437,7 @@ contract BVS_Voting is BVS_Roles {
             ),
             "You already completed this article response quiz"
         );
-        uint8[]
+        uint[]
             memory answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
                 _votingKey,
                 _articleKey,
@@ -545,7 +543,7 @@ contract BVS_Voting is BVS_Roles {
     function getAccountVotingQuizAnswerIndexes(
         bytes32 _votingKey,
         address _account
-    ) public view returns (uint8[] memory) {
+    ) public view returns (uint[] memory) {
         return
             getAccountQuizAnswerIndexes(
                 votings[_votingKey].votingContentCheckQuizIpfsHash,
@@ -561,7 +559,7 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         bytes32 _articleKey,
         address _account
-    ) public view returns (uint8[] memory) {
+    ) public view returns (uint[] memory) {
         return
             getAccountQuizAnswerIndexes(
                 proConArticles[_votingKey][_articleKey]
@@ -578,7 +576,7 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         bytes32 _articleKey,
         address _account
-    ) public view returns (uint8[] memory) {
+    ) public view returns (uint[] memory) {
         return
             getAccountQuizAnswerIndexes(
                 proConArticles[_votingKey][_articleKey]
@@ -593,13 +591,13 @@ contract BVS_Voting is BVS_Roles {
     }
 
     function isContentReadQuizCorrect(
-        uint8[] memory _answerIndexes,
+        uint[] memory _answerIndexes,
         bytes32[] memory _readCheckAnswers,
         string[] memory _answers
     ) public view onlyRole(CITIZEN) returns (bool) {
         bool areAnswersCorrect = true;
 
-        for (uint8 i = 0; i < _answerIndexes.length; i++) {
+        for (uint i = 0; i < _answerIndexes.length; i++) {
             if (
                 _readCheckAnswers[_answerIndexes[i] - 1] !=
                 keccak256(bytes(_answers[i]))
@@ -614,29 +612,29 @@ contract BVS_Voting is BVS_Roles {
     function getAccountQuizAnswerIndexes(
         string memory ipfsHash1,
         string memory ipfsHash2,
-        uint256 _date,
-        uint256 _numOfTotalQuestions,
-        uint256 _numOfQuiestionsToAsk,
+        uint _date,
+        uint _numOfTotalQuestions,
+        uint _numOfQuiestionsToAsk,
         address _account
-    ) internal pure returns (uint8[] memory) {
+    ) internal pure returns (uint[] memory) {
         bytes32 hashCode = keccak256(
             abi.encodePacked(ipfsHash1, ipfsHash2, _account)
         );
 
-        uint8 numOfVotingQuizQuestions = uint8(_numOfTotalQuestions);
+        uint numOfVotingQuizQuestions = uint(_numOfTotalQuestions);
 
-        uint8[] memory questionsToAsk = new uint8[](_numOfQuiestionsToAsk);
+        uint[] memory questionsToAsk = new uint[](_numOfQuiestionsToAsk);
 
-        uint8 countAddedQuestions = 0;
+        uint countAddedQuestions = 0;
         for (
-            uint8 i = uint8(_date % numOfVotingQuizQuestions);
+            uint i = uint(_date % numOfVotingQuizQuestions);
             countAddedQuestions < _numOfQuiestionsToAsk;
             i++
         ) {
-            uint8 questionNth = (uint8(hashCode[i]) %
-                numOfVotingQuizQuestions) + 1;
+            uint questionNth = (uint8(hashCode[i]) % numOfVotingQuizQuestions) +
+                1;
 
-            uint8 u = 0;
+            uint u = 0;
             do {
                 if (questionsToAsk[u] == questionNth) {
                     questionNth++;
@@ -702,15 +700,15 @@ contract BVS_Voting is BVS_Roles {
         return votings[_votingKey];
     }
 
-    function getVotingKeysLength() public view returns (uint256) {
+    function getVotingKeysLength() public view returns (uint) {
         return votingKeys.length;
     }
 
-    function getArticleKeysLength() public view returns (uint256) {
+    function getArticleKeysLength() public view returns (uint) {
         return articleKeys.length;
     }
 
-    function getVotinCycleIndexesSize() public view returns (uint256) {
+    function getVotinCycleIndexesSize() public view returns (uint) {
         return votingCycleIndexes.length;
     }
 

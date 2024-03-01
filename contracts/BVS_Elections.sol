@@ -252,6 +252,10 @@ contract BVS_Elections is BVS_Roles {
         electionCandidateScores[voteOnAddress]++;
     }
 
+    function getPoliticalActors() public view returns (address[] memory) {
+        return politicalActors;
+    }
+
     function getPreElectionCandidatesSize() public view returns (uint256) {
         return preElectionCandidates.length;
     }

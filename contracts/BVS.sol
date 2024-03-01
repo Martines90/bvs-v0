@@ -15,7 +15,18 @@ import "./BVS_Elections.sol";
  */
 
 contract BVS is BVS_Voting, BVS_Funding {
-    constructor(address priceFeed) BVS_Voting() BVS_Funding(priceFeed) {}
+    BVS_Elections public immutable bvsElections;
+
+    constructor(
+        address priceFeed,
+        address _bvsElectionsContract
+    ) BVS_Voting() BVS_Funding(priceFeed) {
+        bvsElections = BVS_Elections(_bvsElectionsContract);
+    }
+
+    function syncElectedPoliticalActors() public onlyRole(SUPER_ADMINISTRATOR) {
+        politicalActors = bvsElections.getPoliticalActors();
+    }
 
     function unlockVotingBudget(
         bytes32 _votingKey

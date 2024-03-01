@@ -24,7 +24,7 @@ contract BVS_Roles is Permissions {
 
     struct PoliticalActorProfile {
         address account;
-        uint16 votingCycleTotalCredits;
+        uint votingCycleTotalCredits;
     }
 
     address[] public admins;
@@ -43,7 +43,7 @@ contract BVS_Roles is Permissions {
 
     function grantPoliticalActorRole(
         address account,
-        uint16 _votingCycleTotalCredit
+        uint _votingCycleTotalCredit
     ) public onlyRole(SUPER_ADMINISTRATOR) {
         require(
             !hasRole(POLITICAL_ACTOR, account),
@@ -78,15 +78,15 @@ contract BVS_Roles is Permissions {
         return hasRole(_role, _account);
     }
 
-    function getAdminsSize() public view returns (uint256) {
+    function getAdminsSize() public view returns (uint) {
         return admins.length;
     }
 
-    function getCitizensSize() public view returns (uint256) {
+    function getCitizensSize() public view returns (uint) {
         return citizens.length;
     }
 
-    function getPoliticalActorsSize() public view returns (uint256) {
+    function getPoliticalActorsSize() public view returns (uint) {
         return politicalActors.length;
     }
 }
