@@ -22,14 +22,9 @@ contract BVS_Roles is Permissions {
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
     bytes32 public constant CITIZEN = keccak256("CITIZEN");
 
-    struct PoliticalActorProfile {
-        address account;
-        uint votingCycleTotalCredits;
-    }
-
     address[] public admins;
     address[] public politicalActors;
-    mapping(address => PoliticalActorProfile) public politicalActorProfiles;
+    mapping(address => uint) public politicalActorVotingCredits;
     address[] public citizens;
 
     constructor() {
@@ -50,10 +45,7 @@ contract BVS_Roles is Permissions {
             "Political actor role alredy granted"
         );
         _setupRole(POLITICAL_ACTOR, account);
-        politicalActorProfiles[account] = PoliticalActorProfile(
-            account,
-            _votingCycleTotalCredit
-        );
+        politicalActorVotingCredits[account] = _votingCycleTotalCredit;
         politicalActors.push(account);
     }
 

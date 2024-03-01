@@ -151,7 +151,7 @@ contract BVS_Voting is BVS_Roles {
             "You can't start new voting 10 days or less before the ongoing voting cycle ends"
         );
         require(
-            politicalActorProfiles[msg.sender].votingCycleTotalCredits >
+            politicalActorVotingCredits[msg.sender] >
                 votingCycleStartVoteCount[votingCycleCount][msg.sender],
             "You ran out of start new voting credits in this voting cycle"
         );
@@ -251,7 +251,7 @@ contract BVS_Voting is BVS_Roles {
     ) public onlyRole(POLITICAL_ACTOR) {
         require(
             publishArticleToVotingsCount[msg.sender][_votingKey] <
-                politicalActorProfiles[msg.sender].votingCycleTotalCredits,
+                politicalActorVotingCredits[msg.sender],
             "You don't have more credit (related to this voting) to publish"
         );
 

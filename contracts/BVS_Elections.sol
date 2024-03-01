@@ -128,7 +128,7 @@ contract BVS_Elections is BVS_Roles {
         // revoke POLITICAL_ACTOR role from the previous cycle political actors
         for (uint i = 0; i < politicalActors.length; i++) {
             _revokeRole(POLITICAL_ACTOR, politicalActors[i]);
-            delete politicalActorProfiles[politicalActors[i]];
+            delete politicalActorVotingCredits[politicalActors[i]];
         }
         politicalActors = new address[](0);
 
@@ -270,5 +270,13 @@ contract BVS_Elections is BVS_Roles {
 
     function getElectionVotersSize() public view returns (uint256) {
         return electionVoters.length;
+    }
+
+    function lastElectionsShouldCompletedAndClosed() public view {
+        require(electionsStartDate == 0, "Elections not yet closed");
+        require(
+            politicalActors.length > 0,
+            "There are no political actors elected"
+        );
     }
 }

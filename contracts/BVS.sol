@@ -14,18 +14,38 @@ import "./BVS_Elections.sol";
  * @dev
  */
 
-contract BVS is BVS_Voting, BVS_Funding {
+contract BVS is BVS_Voting {
     BVS_Elections public immutable bvsElections;
+    BVS_Funding public immutable bvsFuding;
 
-    constructor(
-        address priceFeed,
-        address _bvsElectionsContract
-    ) BVS_Voting() BVS_Funding(priceFeed) {
+    constructor(address priceFeed, address _bvsElectionsContract) BVS_Voting() {
         bvsElections = BVS_Elections(_bvsElectionsContract);
+        bvsFuding = new BVS_Funding(priceFeed);
+    }
+
+    function fund(string memory email) public payable {
+        bvsFuding.addFunder(msg.value, email);
     }
 
     function syncElectedPoliticalActors() public onlyRole(SUPER_ADMINISTRATOR) {
-        politicalActors = bvsElections.getPoliticalActors();
+        bvsElections.lastElectionsShouldCompletedAndClosed();
+
+        for (uint i = 0; i < politicalActors.length; i++) {
+            _revokeRole(POLITICAL_ACTOR, politicalActors[i]);
+            delete politicalActorVotingCredits[politicalActors[i]];
+            delete politicalActors[i];
+        }
+
+        address[] memory electedPoliticalActors = bvsElections
+            .getPoliticalActors();
+        for (uint i = 0; i < electedPoliticalActors.length; i++) {
+            grantPoliticalActorRole(
+                electedPoliticalActors[i],
+                bvsElections.politicalActorVotingCredits(
+                    electedPoliticalActors[i]
+                )
+            );
+        }
     }
 
     function unlockVotingBudget(

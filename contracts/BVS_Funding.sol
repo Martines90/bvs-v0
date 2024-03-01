@@ -50,7 +50,11 @@ contract BVS_Funding {
     }
 
     function fund(string memory email) public payable {
-        uint256 amount = PriceConverter.getConversionRate(msg.value, priceFeed);
+        addFunder(msg.value, email);
+    }
+
+    function addFunder(uint value, string memory email) public {
+        uint256 amount = PriceConverter.getConversionRate(value, priceFeed);
         require(amount >= fundSizes.small, "You need to spend more ETH!");
 
         if (!addressToAmountFunded[msg.sender].exists) {

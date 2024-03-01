@@ -246,71 +246,6 @@ describe("BVS_Elections", () => {
         })
     });
 
-    describe("closeElections succeed", () => {
-        let bvsElectionsAccount0: BVS_Elections;
-
-        beforeEach(async () => {
-            bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
-
-            await callScheduleNextElections(bvsElectionsAccount0);
-        })
-
-        it("should provide new political actors", async () => {
-            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0);
-
-            const winnerCandidate1 = await bvsElections.connect(accounts[1]);
-            await winnerCandidate1.registerAsPreElectionCandidate();
-
-            const winnerCandidate2 = await bvsElections.connect(accounts[2]);
-            await winnerCandidate2.registerAsPreElectionCandidate();
-
-            const loserCandidate = await bvsElections.connect(accounts[10]);
-            await loserCandidate.registerAsPreElectionCandidate();
-
-            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
-
-            // voting on pre elections
-            await citizensVoteOnPreElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
-
-            await citizensVoteOnPreElectionsCandidate(accounts[2], [accounts[3], accounts[4], accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
-
-            await citizensVoteOnPreElectionsCandidate(accounts[10], [accounts[11]], bvsElections);
-
-            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
-
-            await bvsElectionsAccount0.closePreElections();
-
-            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
-
-            // voting on elections
-
-            await citizensVoteOnElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
-
-            await citizensVoteOnElectionsCandidate(accounts[2], [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
-
-            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
-
-            await bvsElectionsAccount0.closeElections();
-
-            assert.equal((await bvsElectionsAccount0.getPoliticalActorsSize()), BigInt(2));
-            assert.equal((await bvsElectionsAccount0.politicalActors(0)), accounts[1].address);
-            assert.equal((await bvsElectionsAccount0.politicalActors(1)), accounts[2].address);
-            deepEqual((await bvsElectionsAccount0.politicalActorProfiles(accounts[1].address)), [
-                accounts[1].address,
-                BigInt(3)
-            ]);
-            deepEqual((await bvsElectionsAccount0.politicalActorProfiles(accounts[2].address)), [
-                accounts[2].address,
-                BigInt(4)
-            ]);
-
-            
-            assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(0));
-            assert.equal((await bvsElectionsAccount0.getElectionVotersSize()), BigInt(0));
-            assert.equal((await bvsElectionsAccount0.electionsStartDate()), BigInt(0));
-        });
-    })
-
     describe('registerAsPreElectionCandidate', () => {
         let bvsElectionsAccount0: BVS_Elections;
 
@@ -611,24 +546,61 @@ describe("BVS_Elections", () => {
         })
     });
 
-    describe('Simulate elections', () => {
+    describe("closeElections succeed", () => {
         let bvsElectionsAccount0: BVS_Elections;
-        let citizenAccounts: HardhatEthersSigner[] = [];
 
         beforeEach(async () => {
             bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
 
             await callScheduleNextElections(bvsElectionsAccount0);
-
-            // store citizens
-            for(let i = 1; i < accounts.length;i++) {
-                citizenAccounts.push(accounts[i]);
-            }
-            
-            // register citizens
-            citizenAccounts.forEach(async (account) => {
-                await bvsElectionsAccount0.grantCitizenRole(account);
-            })
         })
+
+        it("should provide new political actors", async () => {
+            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0);
+
+            const winnerCandidate1 = await bvsElections.connect(accounts[1]);
+            await winnerCandidate1.registerAsPreElectionCandidate();
+
+            const winnerCandidate2 = await bvsElections.connect(accounts[2]);
+            await winnerCandidate2.registerAsPreElectionCandidate();
+
+            const loserCandidate = await bvsElections.connect(accounts[10]);
+            await loserCandidate.registerAsPreElectionCandidate();
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+            // voting on pre elections
+            await citizensVoteOnPreElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[2], [accounts[3], accounts[4], accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
+
+            await citizensVoteOnPreElectionsCandidate(accounts[10], [accounts[11]], bvsElections);
+
+            await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await bvsElectionsAccount0.closePreElections();
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            // voting on elections
+
+            await citizensVoteOnElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
+
+            await citizensVoteOnElectionsCandidate(accounts[2], [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
+
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await bvsElectionsAccount0.closeElections();
+
+            assert.equal((await bvsElectionsAccount0.getPoliticalActorsSize()), BigInt(2));
+            assert.equal((await bvsElectionsAccount0.politicalActors(0)), accounts[1].address);
+            assert.equal((await bvsElectionsAccount0.politicalActors(1)), accounts[2].address);
+            assert.equal((await bvsElectionsAccount0.politicalActorVotingCredits(accounts[1].address)), BigInt(3));
+            assert.equal((await bvsElectionsAccount0.politicalActorVotingCredits(accounts[2].address)), BigInt(4));
+            
+            assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.getElectionVotersSize()), BigInt(0));
+            assert.equal((await bvsElectionsAccount0.electionsStartDate()), BigInt(0));
+        });
     })
 })
