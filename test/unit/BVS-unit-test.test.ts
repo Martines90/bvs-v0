@@ -7,7 +7,13 @@ import { Roles, TimeQuantities, addQuizAndContentCheckAnswersToVoting, completeV
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
+import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
+
 describe("BVS main contract", () => {
+    before(async () => {
+        await helpers.reset();
+    })
+    
     let bvs: BVS;
     let bvsAdmin: BVS;
     let accounts: SignerWithAddress[];

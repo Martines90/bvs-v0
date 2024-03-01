@@ -2,14 +2,22 @@ import { deployments, ethers } from 'hardhat';
 
 import { BVS_Elections } from '../../typechain-types';
 import { assert, expect } from 'chai';
-import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { NOW, Roles, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+
 import { deepEqual } from 'assert';
+
+import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
+
 
 
 describe("BVS_Elections", () => {
+    before(async () => {
+        await helpers.reset();
+    })
+
     let bvsElections: BVS_Elections;
     let accounts: SignerWithAddress[];
 

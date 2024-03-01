@@ -33,7 +33,11 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: "hardhat",
   networks: {
-    hardhat: {},
+    hardhat: {
+      accounts: {
+        count: 100,
+      },
+    },
     sepolia: {
       url: SEPOLIA_RPC_URL,
       accounts: [PRIVATE_KEY],
@@ -43,6 +47,18 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545/",
       chainId: 31337,
     },
+    /*localhost2: {
+      url: "http://127.0.0.1:3333/",
+      chainId: 31337,
+      timeout: 60000,
+      accounts: {
+        count: 100,
+        mnemonic: "test test test test test test",
+        initialIndex: 0,
+        path: "m/44'/60'/0'/0",
+        accountsBalance: "10000000000000000000000",
+      },
+    },*/
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,

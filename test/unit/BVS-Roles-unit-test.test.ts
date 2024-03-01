@@ -6,11 +6,16 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { Roles, getPermissionDenyReasonMessage } from '../../utils/helpers';
 
+import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 describe("BVS_Roles", () => {
     let bvsRoles: BVS_Roles;
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
+
+    before(async () => {
+        await helpers.reset();
+    })
 
     beforeEach(async () => {
         accounts = await ethers.getSigners()

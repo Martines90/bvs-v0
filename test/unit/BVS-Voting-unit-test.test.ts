@@ -7,11 +7,16 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
-import { BytesLike } from 'ethers';
+
+import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 const bytes32 = require('bytes32');
 
 describe("BVS_Voting", () => {
+    before(async () => {
+        await helpers.reset();
+    })
+    
     let admin: BVS_Voting;
     let bvsVoting: BVS_Voting;
     let accounts: SignerWithAddress[];

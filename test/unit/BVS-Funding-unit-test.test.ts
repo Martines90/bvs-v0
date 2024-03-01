@@ -2,10 +2,16 @@ import { deployments, ethers } from 'hardhat';
 
 import { BVS_Funding, MockV3Aggregator } from '../../typechain-types';
 import { assert, expect } from 'chai';
-import { FundingSizeLevels, sendValuesInEth, usdToEther, usdWithDecimals, valuesInUsd } from '../../utils/helpers';
+import { FundingSizeLevels, sendValuesInEth, valuesInUsd } from '../../utils/helpers';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
+import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
+
 describe("BVS_Funding", () => {
+    before(async () => {
+        await helpers.reset();
+    })
+
     let bvsFunding: BVS_Funding;
     let deployer: SignerWithAddress;
     let accounts: SignerWithAddress[];
@@ -15,6 +21,7 @@ describe("BVS_Funding", () => {
 
     beforeEach(async () => {
         accounts = await ethers.getSigners()
+
         deployer = accounts[0]
 
         const deploymentResults = await deployments.fixture(['mocks', 'bvsFunding']);
