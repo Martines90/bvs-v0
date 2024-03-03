@@ -1,6 +1,6 @@
 import { deployments, ethers } from 'hardhat';
 
-import { BVS, BVS_Voting, MockV3Aggregator } from '../../typechain-types';
+import { BVS, MockV3Aggregator } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { Roles, TimeQuantities, addQuizAndContentCheckAnswersToVoting, completeVoting, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount, sendValuesInEth, startNewVoting } from '../../utils/helpers';
@@ -13,7 +13,7 @@ describe("BVS main contract", () => {
     before(async () => {
         await helpers.reset();
     })
-    
+
     let bvs: BVS;
     let bvsAdmin: BVS;
     let accounts: SignerWithAddress[];

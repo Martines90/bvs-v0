@@ -18,8 +18,9 @@ contract BVS is BVS_Voting {
     BVS_Elections public immutable bvsElections;
     BVS_Funding public immutable bvsFuding;
 
-    constructor(address priceFeed, address _bvsElectionsContract) BVS_Voting() {
-        bvsElections = BVS_Elections(_bvsElectionsContract);
+    constructor(address priceFeed) BVS_Voting() {
+        bvsElections = new BVS_Elections();
+        bvsElections.grantAdministratorRole(msg.sender);
         bvsFuding = new BVS_Funding(priceFeed);
     }
 
@@ -27,7 +28,14 @@ contract BVS is BVS_Voting {
         bvsFuding.addFunder(msg.value, email);
     }
 
-    function syncElectedPoliticalActors() public onlyRole(SUPER_ADMINISTRATOR) {
+    function _grantCitizenRole(
+        address _account
+    ) public onlyRole(ADMINISTRATOR) {
+        grantCitizenRole(_account);
+        bvsElections.grantCitizenRole(_account);
+    }
+
+    function syncElectedPoliticalActors() public onlyRole(ADMINISTRATOR) {
         bvsElections.lastElectionsShouldCompletedAndClosed();
 
         for (uint i = 0; i < politicalActors.length; i++) {

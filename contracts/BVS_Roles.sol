@@ -16,8 +16,6 @@ import "hardhat/console.sol";
  */
 
 contract BVS_Roles is Permissions {
-    bytes32 public constant SUPER_ADMINISTRATOR =
-        keccak256("SUPER_ADMINISTRATOR");
     bytes32 public constant ADMINISTRATOR = keccak256("ADMINISTRATOR");
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
     bytes32 public constant CITIZEN = keccak256("CITIZEN");
@@ -31,7 +29,6 @@ contract BVS_Roles is Permissions {
         admins.push(msg.sender);
         citizens.push(msg.sender);
 
-        _setupRole(SUPER_ADMINISTRATOR, msg.sender);
         _setupRole(ADMINISTRATOR, msg.sender);
         _setupRole(CITIZEN, msg.sender);
     }
@@ -39,7 +36,7 @@ contract BVS_Roles is Permissions {
     function grantPoliticalActorRole(
         address account,
         uint _votingCycleTotalCredit
-    ) public onlyRole(SUPER_ADMINISTRATOR) {
+    ) public onlyRole(ADMINISTRATOR) {
         require(
             !hasRole(POLITICAL_ACTOR, account),
             "Political actor role alredy granted"
@@ -51,7 +48,7 @@ contract BVS_Roles is Permissions {
 
     function grantAdministratorRole(
         address account
-    ) public onlyRole(SUPER_ADMINISTRATOR) {
+    ) public onlyRole(ADMINISTRATOR) {
         require(!hasRole(ADMINISTRATOR, account), "Admin role already granted");
         _setupRole(ADMINISTRATOR, account);
         admins.push(account);

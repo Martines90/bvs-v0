@@ -112,7 +112,7 @@ describe("BVS_Elections", () => {
         beforeEach(async () => {
             bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
 
-            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0);
+            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0, 20);
 
             await callScheduleNextElections(bvsElectionsAccount0);
         })
@@ -459,7 +459,7 @@ describe("BVS_Elections", () => {
         beforeEach(async () => {
             bvsElectionsAccount0 = await bvsElections.connect(accounts[0]);
 
-            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0);
+            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0, 20);
 
             await callScheduleNextElections(bvsElectionsAccount0);
         })
@@ -564,7 +564,7 @@ describe("BVS_Elections", () => {
         })
 
         it("should provide new political actors", async () => {
-            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0);
+            await grantCitizenshipForAllAccount(accounts, bvsElectionsAccount0, 20);
 
             const winnerCandidate1 = await bvsElections.connect(accounts[1]);
             await winnerCandidate1.registerAsPreElectionCandidate();
