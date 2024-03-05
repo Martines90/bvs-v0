@@ -591,21 +591,20 @@ describe("BVS_Elections", () => {
             await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
 
             // voting on elections
+            const votersA = [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]];
+            await citizensVoteOnElectionsCandidate(accounts[1], votersA, bvsElections);
 
-            await citizensVoteOnElectionsCandidate(accounts[1], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
-
-            await citizensVoteOnElectionsCandidate(accounts[2], [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
+            const votersB = [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]];
+            await citizensVoteOnElectionsCandidate(accounts[2], votersB, bvsElections);
 
             await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
 
             await bvsElectionsAccount0.closeElections();
 
-            assert.equal((await bvsElectionsAccount0.getPoliticalActorsSize()), BigInt(2));
-            assert.equal((await bvsElectionsAccount0.politicalActors(0)), accounts[1].address);
-            assert.equal((await bvsElectionsAccount0.politicalActors(1)), accounts[2].address);
-            assert.equal((await bvsElectionsAccount0.politicalActorVotingCredits(accounts[1].address)), BigInt(3));
-            assert.equal((await bvsElectionsAccount0.politicalActorVotingCredits(accounts[2].address)), BigInt(4));
-            
+            assert.equal((await bvsElectionsAccount0.getWinnersSize()), BigInt(2));
+            deepEqual((await bvsElectionsAccount0.winners(0)), [accounts[1].address, BigInt(Math.floor(((votersA.length * 100 / (votersA.length + votersB.length)) - 10) / 10) + 1)]);
+            deepEqual((await bvsElectionsAccount0.winners(1)), [accounts[2].address, BigInt(Math.floor(((votersB.length * 100 / (votersA.length + votersB.length)) - 10) / 10) + 1)]);
+
             assert.equal((await bvsElectionsAccount0.getElectionCandidatesSize()), BigInt(0));
             assert.equal((await bvsElectionsAccount0.getElectionVotersSize()), BigInt(0));
             assert.equal((await bvsElectionsAccount0.electionsStartDate()), BigInt(0));

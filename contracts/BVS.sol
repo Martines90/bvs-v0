@@ -21,7 +21,12 @@ contract BVS is BVS_Voting {
     constructor(address priceFeed) BVS_Voting() {
         bvsElections = new BVS_Elections();
         bvsElections.grantAdministratorRole(msg.sender);
+        bvsElections.grantCitizenRole(msg.sender);
         bvsFuding = new BVS_Funding(priceFeed);
+    }
+
+    function revokeMySuperAdminRole() public onlyRole(SUPER_ADMINISTRATOR) {
+        _revokeRole(SUPER_ADMINISTRATOR, msg.sender);
     }
 
     function fund(string memory email) public payable {
@@ -35,24 +40,27 @@ contract BVS is BVS_Voting {
         bvsElections.grantCitizenRole(_account);
     }
 
+    function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {
+        grantAdministratorRole(_account);
+        bvsElections.grantAdministratorRole(_account);
+    }
+
     function syncElectedPoliticalActors() public onlyRole(ADMINISTRATOR) {
         bvsElections.lastElectionsShouldCompletedAndClosed();
 
         for (uint i = 0; i < politicalActors.length; i++) {
-            _revokeRole(POLITICAL_ACTOR, politicalActors[i]);
             delete politicalActorVotingCredits[politicalActors[i]];
             delete politicalActors[i];
         }
 
-        address[] memory electedPoliticalActors = bvsElections
-            .getPoliticalActors();
-        for (uint i = 0; i < electedPoliticalActors.length; i++) {
-            grantPoliticalActorRole(
-                electedPoliticalActors[i],
-                bvsElections.politicalActorVotingCredits(
-                    electedPoliticalActors[i]
-                )
-            );
+        uint numOfWinnersOfLastElections = bvsElections.getWinnersSize();
+        address account;
+        uint credit;
+        for (uint i = 0; i < numOfWinnersOfLastElections; i++) {
+            (account, credit) = bvsElections.winners(i);
+            _setupRole(POLITICAL_ACTOR, account);
+            politicalActorVotingCredits[account] = credit;
+            politicalActors.push(account);
         }
     }
 

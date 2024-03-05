@@ -37,6 +37,11 @@ contract BVS_Elections is BVS_Roles {
         uint16 voteCount;
     }
 
+    struct Winner {
+        address account;
+        uint votingCredit;
+    }
+
     struct ElectionVoter {
         address account;
         address candidate1;
@@ -51,6 +56,8 @@ contract BVS_Elections is BVS_Roles {
     address[] public electionVoters;
     mapping(address => address) public electionVotes;
     mapping(address => uint32) public electionCandidateScores;
+
+    Winner[] public winners;
 
     constructor() BVS_Roles() {}
 
@@ -70,6 +77,10 @@ contract BVS_Elections is BVS_Roles {
         preElectionsEndDate = _preElectionsEndDate;
         electionsStartDate = _electionsStartDate;
         electionsEndDate = _electionsEndDate;
+
+        for (uint i = 0; i < winners.length; i++) {
+            delete winners[i];
+        }
     }
 
     function closePreElections() public onlyRole(ADMINISTRATOR) {
@@ -137,14 +148,20 @@ contract BVS_Elections is BVS_Roles {
         for (uint i = 0; i < electionCandidates.length; i++) {
             uint256 votesOwnedPercentage = ((electionCandidateScores[
                 electionCandidates[i]
-            ] - 1) * 100) / totalVotes;
+            ] - 1) * 1000) / totalVotes;
 
             if (votesOwnedPercentage > MINIMUM_PERCENTAGE_OF_ELECTION_VOTES) {
                 uint256 votingCycleTotalCredit = (votesOwnedPercentage -
-                    MINIMUM_PERCENTAGE_OF_ELECTION_VOTES) / 10;
-                grantPoliticalActorRole(
-                    electionCandidates[i],
-                    uint16(votingCycleTotalCredit)
+                    MINIMUM_PERCENTAGE_OF_ELECTION_VOTES *
+                    10) /
+                    100 +
+                    1;
+
+                winners.push(
+                    Winner(
+                        electionCandidates[i],
+                        uint16(votingCycleTotalCredit)
+                    )
                 );
             }
         }
@@ -272,11 +289,12 @@ contract BVS_Elections is BVS_Roles {
         return electionVoters.length;
     }
 
+    function getWinnersSize() public view returns (uint256) {
+        return winners.length;
+    }
+
     function lastElectionsShouldCompletedAndClosed() public view {
         require(electionsStartDate == 0, "Elections not yet closed");
-        require(
-            politicalActors.length > 0,
-            "There are no political actors elected"
-        );
+        require(winners.length > 0, "There are no political actors elected");
     }
 }

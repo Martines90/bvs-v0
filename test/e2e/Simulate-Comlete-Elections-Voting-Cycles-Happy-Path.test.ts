@@ -9,6 +9,11 @@ import { NOW, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPr
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
+type Voter = {
+    isVotedOnPreElections: boolean,
+    isVotedOnElections: boolean,
+    account: SignerWithAddress
+}
 
 
 describe("BVS from elections to voting e2e test scenario", () => {
@@ -24,6 +29,7 @@ describe("BVS from elections to voting e2e test scenario", () => {
 
 
     let accounts: SignerWithAddress[];
+    let voters: Voter[] = [];
 
     
 
@@ -32,6 +38,30 @@ describe("BVS from elections to voting e2e test scenario", () => {
         preElectionsEndDate: NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
         electionsStartDate: NOW + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
         electionsEndDate: NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    }
+
+    const voteOnCandidateOnPreElectionsByPercentageOfAccounts = async (candidate: SignerWithAddress, percentage: number) => {
+        let votedCount = 0;
+        for (let i = 0; voters.length > i && votedCount < Number(voters.length)*percentage; i++) {
+            if (!voters[i].isVotedOnPreElections && voters[i].account.address != candidate.address) {
+                const voter = await bvsElections.connect(voters[i].account);
+                await voter.voteOnPreElections(candidate.address);
+                voters[i].isVotedOnPreElections = true
+                votedCount++;
+            }
+        }
+    }
+
+    const voteOnCandidateOnElectionsByPercentageOfAccounts = async (candidate: SignerWithAddress, percentage: number) => {
+        let votedCount = 0;
+        for (let i = 0; voters.length > i && votedCount < Number(voters.length)*percentage; i++) {
+            if (!voters[i].isVotedOnElections && voters[i].account.address != candidate.address) {
+                const voter = await bvsElections.connect(voters[i].account);
+                await voter.voteOnElections(candidate.address);
+                voters[i].isVotedOnElections = true
+                votedCount++;
+            }
+        }
     }
 
     beforeEach(async () => {
@@ -53,6 +83,13 @@ describe("BVS from elections to voting e2e test scenario", () => {
         for (let i = 1; accounts.length > i; i++) {
             await bvsAdmin._grantCitizenRole(accounts[i]);
         }
+
+        voters = accounts.map((account: SignerWithAddress) => ({
+            isVotedOnPreElections: false,
+            isVotedOnElections: false,
+            account
+        })
+    )
 
         await callScheduleNextElections(bvsElectionsAdmin);
     })
@@ -76,17 +113,15 @@ describe("BVS from elections to voting e2e test scenario", () => {
        const winnerCandidate2 = await bvsElections.connect(accounts[3]);
         await winnerCandidate2.registerAsPreElectionCandidate();
 
-        const loserCandidate = await bvsElections.connect(accounts[4]);
-        await loserCandidate.registerAsPreElectionCandidate();
+        const winnerCandidate3 = await bvsElections.connect(accounts[4]);
+        await winnerCandidate3.registerAsPreElectionCandidate();
 
         await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
         // voting on pre elections
-        await citizensVoteOnPreElectionsCandidate(accounts[2], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
-
-        await citizensVoteOnPreElectionsCandidate(accounts[3], [accounts[2], accounts[4], accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
-
-        await citizensVoteOnPreElectionsCandidate(accounts[4], [accounts[11]], bvsElections);
+        await voteOnCandidateOnPreElectionsByPercentageOfAccounts(accounts[2], 0.15);
+        await voteOnCandidateOnPreElectionsByPercentageOfAccounts(accounts[3], 0.15);
+        await voteOnCandidateOnPreElectionsByPercentageOfAccounts(accounts[4], 0.15);
 
         await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
 
@@ -96,23 +131,32 @@ describe("BVS from elections to voting e2e test scenario", () => {
 
         // voting on elections
 
-        await citizensVoteOnElectionsCandidate(accounts[2], [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]], bvsElections);
-
-        await citizensVoteOnElectionsCandidate(accounts[3], [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]], bvsElections);
+        await voteOnCandidateOnElectionsByPercentageOfAccounts(accounts[2], 0.39);
+        await voteOnCandidateOnElectionsByPercentageOfAccounts(accounts[3], 0.49);
+        await voteOnCandidateOnElectionsByPercentageOfAccounts(accounts[4], 0.12);
 
         await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
 
         await bvsElectionsAdmin.closeElections();
 
-        assert.equal((await bvsElectionsAdmin.getPoliticalActorsSize()), BigInt(2));
-        assert.equal((await bvsElectionsAdmin.politicalActors(0)), accounts[2].address);
-        assert.equal((await bvsElectionsAdmin.politicalActors(1)), accounts[3].address);
-        assert.equal((await bvsElectionsAdmin.politicalActorVotingCredits(accounts[2].address)), BigInt(3));
-        assert.equal((await bvsElectionsAdmin.politicalActorVotingCredits(accounts[3].address)), BigInt(4));
-        
         assert.equal((await bvsElectionsAdmin.getElectionCandidatesSize()), BigInt(0));
         assert.equal((await bvsElectionsAdmin.getElectionVotersSize()), BigInt(0));
         assert.equal((await bvsElectionsAdmin.electionsStartDate()), BigInt(0));
+
+        assert.equal((await bvsElectionsAdmin.getWinnersSize()), BigInt(3));
+
+       // grant political actor roles to winners
+
+        await bvs.syncElectedPoliticalActors();
+
+        assert.equal((await bvsAdmin.getPoliticalActorsSize()), BigInt(3));
+
+        assert.equal((await bvsAdmin.politicalActors(0)), accounts[2].address);
+        assert.equal((await bvsAdmin.politicalActors(1)), accounts[3].address);
+        assert.equal((await bvsAdmin.politicalActors(2)), accounts[4].address);
+        assert.equal((await bvsAdmin.politicalActorVotingCredits(accounts[2].address)), BigInt(3));
+        assert.equal((await bvsAdmin.politicalActorVotingCredits(accounts[3].address)), BigInt(4));
+        assert.equal((await bvsAdmin.politicalActorVotingCredits(accounts[4].address)), BigInt(1));
         
     });
 })

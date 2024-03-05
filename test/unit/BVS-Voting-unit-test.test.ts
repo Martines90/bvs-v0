@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnwersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
@@ -16,7 +16,7 @@ describe("BVS_Voting", () => {
     before(async () => {
         await helpers.reset();
     })
-    
+
     let admin: BVS_Voting;
     let bvsVoting: BVS_Voting;
     let accounts: SignerWithAddress[];
@@ -341,7 +341,7 @@ describe("BVS_Voting", () => {
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+            await assignAnswersToVoting(bvsVoting, votingKey, 10);
         })
 
         it('should revert when account has no ADMINISTRATOR role', async () => {
@@ -883,7 +883,7 @@ describe("BVS_Voting", () => {
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+            await assignAnswersToVoting(bvsVoting, votingKey, 10);
         })
 
         
@@ -1033,7 +1033,7 @@ describe("BVS_Voting", () => {
         it('should revert when account has no CITIZEN role', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+            await assignAnswersToVoting(bvsVoting, votingKey, 10);
 
             const account2 = await bvsVoting.connect(accounts[2]);
 
@@ -1045,7 +1045,7 @@ describe("BVS_Voting", () => {
         it('should revert when any of the provided answers are wrong', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+            await assignAnswersToVoting(bvsVoting, votingKey, 10);
 
             await admin.grantCitizenRole(accounts[1])
 
@@ -1065,7 +1065,7 @@ describe("BVS_Voting", () => {
         it('should complete voting when provided answers are correct', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await assignAnwersToVoting(bvsVoting, votingKey, 10);
+            await assignAnswersToVoting(bvsVoting, votingKey, 10);
 
             await completeVoting(admin, accounts[1])
 
