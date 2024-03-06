@@ -49,19 +49,6 @@ contract BVS_Roles is Permissions {
         _setupRole(CITIZEN, msg.sender);
     }
 
-    function grantPoliticalActorRole(
-        address account,
-        uint _votingCycleTotalCredit
-    ) public onlyRole(SUPER_ADMINISTRATOR) {
-        require(
-            !hasRole(POLITICAL_ACTOR, account),
-            "Political actor role alredy granted"
-        );
-        _setupRole(POLITICAL_ACTOR, account);
-        politicalActorVotingCredits[account] = _votingCycleTotalCredit;
-        politicalActors.push(account);
-    }
-
     function grantAdministratorRole(
         address _account
     ) public onlyRole(ADMINISTRATOR) {

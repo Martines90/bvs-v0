@@ -97,9 +97,8 @@ contract BVS_Elections is BVS_Roles {
             uint256 voterSupportPercentage = ((preElectionCandidateScores[
                 preElectionCandidates[i]
             ] - 1) * 100) / numOfPreElectionVoters;
-
             if (
-                voterSupportPercentage >
+                voterSupportPercentage >=
                 MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES
             ) {
                 electionCandidates.push(preElectionCandidates[i]);

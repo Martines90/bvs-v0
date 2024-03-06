@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, callScheduleNextElections, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount, mockNextElectionsConfig } from '../../utils/helpers';
 
 import { deepEqual } from 'assert';
 
@@ -21,13 +21,6 @@ describe("BVS_Elections", () => {
     let bvsElections: BVS_Elections;
     let accounts: SignerWithAddress[];
 
-    const mockNextElectionsConfig = {
-        preElectionsStartDate: NOW + TimeQuantities.MONTH + TimeQuantities.DAY,
-        preElectionsEndDate: NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
-        electionsStartDate: NOW + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
-        electionsEndDate: NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
-    }
-
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
@@ -37,15 +30,6 @@ describe("BVS_Elections", () => {
 
         bvsElections = await ethers.getContractAt('BVS_Elections', bvsAddress);
     })
-
-    const callScheduleNextElections = (connectedAccount: BVS_Elections, mockInput?: any) => {
-        return connectedAccount.scheduleNextElections(
-            (mockInput || mockNextElectionsConfig).preElectionsStartDate,
-            (mockInput || mockNextElectionsConfig).preElectionsEndDate,
-            (mockInput || mockNextElectionsConfig).electionsStartDate,
-            (mockInput || mockNextElectionsConfig).electionsEndDate
-        )
-    }
 
     describe("scheduleNextElections", () => {
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {

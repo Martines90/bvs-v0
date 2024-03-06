@@ -1,17 +1,18 @@
 import { deployments, ethers } from 'hardhat';
 
-import { BVS_Voting } from '../../typechain-types';
+import { BVS_Elections, BVS_Voting } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, getPermissionDenyReasonMessage, startNewVoting } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, sendValuesInEth, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 const bytes32 = require('bytes32');
 
+const farFutureDate = 2524687964;
 describe("BVS_Voting", () => {
     before(async () => {
         await helpers.reset();
@@ -19,6 +20,7 @@ describe("BVS_Voting", () => {
 
     let admin: BVS_Voting;
     let bvsVoting: BVS_Voting;
+    let bvsElections: BVS_Elections;
     let accounts: SignerWithAddress[];
     let MIN_TOTAL_CONTENT_READ_CHECK_ANSWER: number
 
@@ -32,11 +34,13 @@ describe("BVS_Voting", () => {
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
-        const deploymentResults = await deployments.fixture(['bvs_voting']);
+        const deploymentResults = await deployments.fixture(['mocks', 'bvs_voting']);
 
         const bvsAddress: string = deploymentResults['BVS_Voting']?.address;
 
         bvsVoting = await ethers.getContractAt('BVS_Voting', bvsAddress);
+
+        bvsElections = await ethers.getContractAt('BVS_Elections', (await bvsVoting.bvsElections()));
 
         // read contract constants
         VOTING_DURATION = Number(await bvsVoting.VOTING_DURATION());
@@ -48,21 +52,141 @@ describe("BVS_Voting", () => {
         admin = await bvsVoting.connect(accounts[0]);
 
         MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = Number(await admin.MIN_TOTAL_CONTENT_READ_CHECK_ANSWER())
+
+        await grantCitizenshipForAllAccount2(accounts, bvsVoting, 20)
+    })
+
+    describe("unlockVotedBudget", () => {
+        const votingTargetBudget = sendValuesInEth.medium / BigInt(2);
+        let politicalActor: BVS_Voting;
+        let votingKey: string
+        let articleKey: string
+
+        beforeEach(async () => {
+            admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+
+            await electCandidates(bvsElections,[accounts[1]]);
+            await admin.syncElectedPoliticalActors();
+
+            politicalActor = await admin.connect(accounts[1]);
+
+            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+
+            await startNewVoting(politicalActor, farFutureDate, votingTargetBudget)
+
+            votingKey = await politicalActor.votingKeys(0);
+
+            await addQuizAndContentCheckAnswersToVoting(admin)
+
+            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+
+            await admin.approveVoting(votingKey)
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+
+            const account = await admin.connect(accounts[2]);
+            const account2 = await admin.connect(accounts[3]);
+            const account3 = await admin.connect(accounts[4]);
+
+            await completeVoting(admin, accounts[2]);
+            await completeVoting(admin, accounts[3]);
+            await completeVoting(admin, accounts[4]);
+
+            await account.voteOnVoting(votingKey, true);
+            await account2.voteOnVoting(votingKey, false);
+            await account3.voteOnVoting(votingKey, false);
+        })
+        it("should forbid to unlock voting budget money for non POLITICAL_ACTOR account", async () => {
+            const citizen1 = await admin.connect(accounts[3]);
+            await expect(citizen1.unlockVotingBudget(votingKey)).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[3].address, Roles.POLITICAL_ACTOR));;
+        })
+
+        it("should forbid to unlock voting budget money when voting did not win", async () => {
+            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+
+            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
+                "Voting did not received the majority of support"
+            );;
+        })
+
+        it("should fail to unlock voting budget money when BVS balance can't cover it", async () => {
+            const account6 = await admin.connect(accounts[6]);
+            const account7 = await admin.connect(accounts[7]);
+
+            await completeVoting(admin, accounts[6]);
+            await completeVoting(admin, accounts[7]);
+
+            await account6.voteOnVoting(votingKey, true);
+            await account7.voteOnVoting(votingKey, true);
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+
+            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
+                "Call failed"
+            );;
+        })
+
+        it("should withdraw money when voting is finished and won", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
+            await bvsAccount5.fund("test@email.com", { value: BigInt(2) * votingTargetBudget })
+
+            const account6 = await admin.connect(accounts[6]);
+            const account7 = await admin.connect(accounts[7]);
+
+            await completeVoting(admin, accounts[6]);
+            await completeVoting(admin, accounts[7]);
+
+            await account6.voteOnVoting(votingKey, true);
+            await account7.voteOnVoting(votingKey, true);
+
+            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+
+            const bvsAddress = await admin.getAddress();
+            const provider = admin.runner?.provider;
+
+            const startingBVS_FundingBalance = (await provider?.getBalance(bvsAddress)) || BigInt(0);
+
+
+            const startingPoliticalActorBalance = (await provider?.getBalance(accounts[1])) || BigInt(0);
+
+            const transactionResponse = await politicalActor.unlockVotingBudget(votingKey);
+ 
+            const transactionReceipt = (await transactionResponse.wait(1)) || {
+                gasUsed: BigInt(0),
+                gasPrice: BigInt(0),
+            };
+
+            const { gasUsed, gasPrice } = transactionReceipt;
+            const gasCost = gasUsed * gasPrice;
+
+            const endingBVS_FundingBalance = ((await provider?.getBalance(bvsAddress))  || BigInt(0));
+            const endingPoliticalActorBalance = (await provider?.getBalance(accounts[1])) || BigInt(0);
+
+            assert.equal(endingBVS_FundingBalance, startingBVS_FundingBalance - votingTargetBudget);
+            assert.equal(
+                (votingTargetBudget + startingPoliticalActorBalance).toString(),
+                (endingPoliticalActorBalance + gasCost).toString()
+              );
+
+            assert.equal((await admin.votings(votingKey)).budget, BigInt(0));
+        })
     })
 
     describe('setFirstVotingCycleStartDate', () => {
-        const firstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const firstVotingCycleStartDate = farFutureDate
 
         it('should revert when non ADMINISTRATOR calls it', async () => {
             const bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
 
             await expect(
-                bvsVotingAccount1.setFirstVotingCycleStartDate(NOW + TimeQuantities.MONTH)
+                bvsVotingAccount1.setFirstVotingCycleStartDate(firstVotingCycleStartDate)
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when passed date is before now', async () => {
-            await expect(admin.setFirstVotingCycleStartDate(NOW - TimeQuantities.HOUR)).to.be.revertedWith('Voting cycle start date has to be in the future');
+            await time.increaseTo(firstVotingCycleStartDate);
+
+            await expect(admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate - TimeQuantities.HOUR)).to.be.revertedWith('Voting cycle start date has to be in the future');
         })
 
         it('should update firstVotingCycleStartDate with passed date', async () => {
@@ -76,7 +200,8 @@ describe("BVS_Voting", () => {
 
             await admin.firstVotingCycleStartDate(), BigInt(firstVotingCycleStartDate)
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1]]);
+            await admin.syncElectedPoliticalActors();
 
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -97,16 +222,17 @@ describe("BVS_Voting", () => {
     })
 
     describe('scheduleNewVoting', () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
         })
 
         it('should revert when non POLITICAL_ACTOR calls it', async () => {
-            const bvsVotingAccount2 = await bvsVoting.connect(accounts[2]);
+            const bvsVotingAccount2 = await bvsVoting.connect(accounts[10]);
 
             await expect(
                 bvsVotingAccount2.scheduleNewVoting(
@@ -114,7 +240,7 @@ describe("BVS_Voting", () => {
                     NOW,
                     0
                 )
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when actual date is before first voting cycle start date', async () => {
@@ -223,14 +349,15 @@ describe("BVS_Voting", () => {
 
 
     describe('assignQuizIpfsHashToVoting', () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
-
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+        
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -268,14 +395,15 @@ describe("BVS_Voting", () => {
     })
 
     describe('addKeccak256HashedAnswerToVotingContent', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -319,7 +447,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('approveVoting', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
         let votingKey: string
@@ -327,7 +455,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -375,8 +504,6 @@ describe("BVS_Voting", () => {
         it('should revert when creator not responded on all the critical articles', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
-
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
             await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
@@ -400,8 +527,6 @@ describe("BVS_Voting", () => {
 
         it('should approve voting', async () => {
             const votingKey = await politicalActor.votingKeys(0);
-
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
 
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
@@ -434,13 +559,14 @@ describe("BVS_Voting", () => {
     })
 
     describe('publishProConArticle', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -453,11 +579,11 @@ describe("BVS_Voting", () => {
         it('should revert when account has no POLITICAL_ACTOR role', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            const account2 = await bvsVoting.connect(accounts[2]);
+            const account2 = await bvsVoting.connect(accounts[10]);
 
             await expect(
                 account2.publishProConArticle(votingKey, 'ipfs-hash', true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when account has no more publish credit related to a specific voting', async () => {
@@ -495,7 +621,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('assignQuizIpfsHashToArticleOrResponse', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string      
@@ -503,7 +629,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -547,7 +674,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('addKeccak256HashedAnswerToArticle', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string
@@ -555,7 +682,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -595,7 +723,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('approveArticle', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -604,7 +732,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -665,7 +794,7 @@ describe("BVS_Voting", () => {
     
 
     describe('publishProConArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -674,7 +803,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -693,11 +823,11 @@ describe("BVS_Voting", () => {
         it('should revert when account has no POLITICAL_ACTOR role', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
-            const account2 = await bvsVoting.connect(accounts[2]);
+            const account2 = await bvsVoting.connect(accounts[10]);
 
             await expect(
                 account2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when voting already started', async () => {
@@ -709,8 +839,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when criticized voting not belongs to the political actor', async () => {
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
-
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
@@ -732,7 +860,7 @@ describe("BVS_Voting", () => {
     // assign quiz (assignQuizIpfsHashToArticleOrResponse) - tested
 
     describe('addKeccak256HashedAnswerToArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string
@@ -741,7 +869,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -781,7 +910,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('approveArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = NOW + TimeQuantities.HOUR
+        const mockFirstVotingCycleStartDate = farFutureDate
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -790,7 +919,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -864,14 +994,14 @@ describe("BVS_Voting", () => {
     })
 
     describe("getAccountVotingQuizAnswerIndexes", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - (VOTING_DURATION - TimeQuantities.DAY));
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -906,7 +1036,6 @@ describe("BVS_Voting", () => {
     })
 
     describe("getAccountArticleQuizAnswerIndexes", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -914,7 +1043,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -924,8 +1054,6 @@ describe("BVS_Voting", () => {
             await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
-
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
 
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
@@ -958,7 +1086,6 @@ describe("BVS_Voting", () => {
     })
 
     describe("getAccountArticleResponseQuizAnswerIndexes", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -966,7 +1093,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -976,8 +1104,6 @@ describe("BVS_Voting", () => {
             await startNewVoting(politicalActor, farFutureDate)
 
             votingKey = await politicalActor.votingKeys(0);
-
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
 
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
@@ -1010,14 +1136,14 @@ describe("BVS_Voting", () => {
     })
 
     describe("completeVotingContentReadQuiz", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1035,19 +1161,17 @@ describe("BVS_Voting", () => {
 
             await assignAnswersToVoting(bvsVoting, votingKey, 10);
 
-            const account2 = await bvsVoting.connect(accounts[2]);
+            const account2 = await bvsVoting.connect(accounts[27]);
 
             await expect(
                 account2.completeVotingContentReadQuiz(votingKey, [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[27].address, Roles.CITIZEN));
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
             const votingKey = await politicalActor.votingKeys(0);
 
             await assignAnswersToVoting(bvsVoting, votingKey, 10);
-
-            await admin.grantCitizenRole(accounts[1])
 
             const account = await bvsVoting.connect(accounts[1]);
 
@@ -1075,7 +1199,6 @@ describe("BVS_Voting", () => {
 
 
     describe("completeArticleReadQuiz", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -1083,7 +1206,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1094,8 +1218,6 @@ describe("BVS_Voting", () => {
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
-
-            await admin.grantPoliticalActorRole(accounts[2].address, 2);
 
             const politicalActor2 = await bvsVoting.connect(accounts[2]);
 
@@ -1109,11 +1231,11 @@ describe("BVS_Voting", () => {
         it('should revert when account has no CITIZEN role', async () => {
             await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
 
-            const account2 = await bvsVoting.connect(accounts[2]);
+            const account2 = await bvsVoting.connect(accounts[23]);
 
             await expect(
                 account2.completeArticleReadQuiz(votingKey, articleKey, [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
         })
 
         it('should revert when article quiz already completed', async () => {
@@ -1130,8 +1252,6 @@ describe("BVS_Voting", () => {
 
         it('should revert when any of the provided answers are wrong', async () => {
             await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
-
-            await admin.grantCitizenRole(accounts[1])
 
             const account = await bvsVoting.connect(accounts[1]);
 
@@ -1157,7 +1277,6 @@ describe("BVS_Voting", () => {
 
 
     describe("completeArticleResponseQuiz", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -1165,7 +1284,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1188,11 +1308,11 @@ describe("BVS_Voting", () => {
         it('should revert when account has no CITIZEN role', async () => {
             await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
 
-            const account2 = await bvsVoting.connect(accounts[2]);
+            const account2 = await bvsVoting.connect(accounts[24]);
 
             await expect(
                 account2.completeArticleResponseQuiz(votingKey, articleKey, [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.CITIZEN));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[24].address, Roles.CITIZEN));
         })
 
         it('should revert when citizen already completed the quiz', async () => {
@@ -1209,8 +1329,6 @@ describe("BVS_Voting", () => {
 
         it('should revert when any of the provided answers are wrong', async () => {
             await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
-
-            await admin.grantCitizenRole(accounts[1])
 
             const account = await bvsVoting.connect(accounts[1]);
 
@@ -1235,7 +1353,6 @@ describe("BVS_Voting", () => {
     })
 
     describe("voteOnVoting", async () => {
-        const farFutureDate = 2524687964; // Sat Jan 01 2050 22:12:44
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -1243,7 +1360,8 @@ describe("BVS_Voting", () => {
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
 
-            await admin.grantPoliticalActorRole(accounts[1].address, 2);
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1259,16 +1377,14 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when account has no CITIZEN role', async () => {
-            const account = await bvsVoting.connect(accounts[1]);
+            const account = await bvsVoting.connect(accounts[25]);
 
             await expect(
                 account.voteOnVoting(votingKey, true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.CITIZEN));
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[25].address, Roles.CITIZEN));
         })
 
         it('should revert when voting already started', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
@@ -1277,8 +1393,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when voting already finished', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(farFutureDate + VOTING_DURATION);
@@ -1289,8 +1403,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when voting not approved', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
@@ -1301,8 +1413,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when citizen did not completed voting content check quiz', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
@@ -1317,8 +1427,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when citizen already voted', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
@@ -1342,8 +1450,6 @@ describe("BVS_Voting", () => {
             articleKey = await politicalActor.articleKeys(0);
 
             await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
-
-            await admin.grantCitizenRole(accounts[1])
 
             const account = await bvsVoting.connect(accounts[1]);
             const account2 = await bvsVoting.connect(accounts[2]);
@@ -1373,8 +1479,6 @@ describe("BVS_Voting", () => {
         })
 
         it('should count citizen voting score properly when citizen completed related articles', async () => {
-            await admin.grantCitizenRole(accounts[1])
-
             const account = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);

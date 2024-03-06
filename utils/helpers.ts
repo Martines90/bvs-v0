@@ -1,9 +1,13 @@
 import { ethers } from "hardhat"
 import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
-import { BVS_Voting } from "../typechain-types"
+import { BVS_Elections, BVS_Voting } from "../typechain-types"
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const bytes32 = require('bytes32');
+
+export const NOW = Math.round(Date.now() / 1000);
+
 
 export const usdToEther = (amountInUsd: number): bigint => {
     return ethers.parseEther(((amountInUsd * Math.pow(10, DECIMALS)) / INITIAL_PRICE).toString())
@@ -23,7 +27,6 @@ const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
 const hourInMiliSec = 60 * 60;
 
-export const NOW = Math.round(Date.now() / 1000);
 
 export enum Roles {
     ADMINISTRATOR = '0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661',
@@ -37,6 +40,13 @@ export enum TimeQuantities {
     WEEK = hourInMiliSec * 24 * 7,
     DAY = hourInMiliSec * 24,
     HOUR = hourInMiliSec
+}
+
+export const mockNextElectionsConfig = {
+    preElectionsStartDate: NOW + TimeQuantities.MONTH + TimeQuantities.DAY,
+    preElectionsEndDate: NOW + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    electionsStartDate: NOW + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    electionsEndDate: NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
 }
 
 export const sendValuesInEth = {
@@ -75,6 +85,12 @@ export const getPermissionDenyReasonMessage = (accountAddress: string, roleKecca
 export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], admin: any, limit = accounts.length) => {
     for (let i = 1; limit > i; i++) {
         await admin.grantCitizenRole(accounts[i]);
+    }
+}
+
+export const grantCitizenshipForAllAccount2 = async (accounts: SignerWithAddress[], admin: BVS_Voting, limit = accounts.length) => {
+    for (let i = 1; limit > i; i++) {
+        await admin._grantCitizenRole(accounts[i]);
     }
 }
 
@@ -128,10 +144,6 @@ export const addQuizAndContentCheckAnswersToVoting = async (admin: BVS_Voting) =
 
 export const addArticleToVotingWithQuizAndAnswers = async (admin: BVS_Voting, criticalPoliticalActorAccount: SignerWithAddress, isVoteOnA: boolean) => {
     const votingKey = await admin.votingKeys((await admin.getVotingKeysLength()) - BigInt(1));
-
-    if (!(await admin.checkIfAccounthasRole(criticalPoliticalActorAccount.address, Roles.POLITICAL_ACTOR))) {
-        await admin.grantPoliticalActorRole(criticalPoliticalActorAccount.address, 2);
-    }
     
     const criticalPoliticalActor = await admin.connect(criticalPoliticalActorAccount);
 
@@ -215,4 +227,47 @@ export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: S
     }
 
     await voter.completeArticleResponseQuiz(votingKey, articleKey, answers);
+}
+
+
+export const callScheduleNextElections = (connectedAccount: BVS_Elections, mockInput?: any) => {
+    return connectedAccount.scheduleNextElections(
+        (mockInput || mockNextElectionsConfig).preElectionsStartDate,
+        (mockInput || mockNextElectionsConfig).preElectionsEndDate,
+        (mockInput || mockNextElectionsConfig).electionsStartDate,
+        (mockInput || mockNextElectionsConfig).electionsEndDate
+    )
+}
+
+// electCandidates
+
+export const electCandidates = async (admin: BVS_Elections, candidates: SignerWithAddress[]) => {
+    const accounts = await ethers.getSigners()
+    await callScheduleNextElections(admin)
+
+    for (let i = 0;i < candidates.length;i++) {
+        const winnerCandidate = await admin.connect(candidates[i]);
+        await winnerCandidate.registerAsPreElectionCandidate();
+    }
+
+    await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+
+    for (let i = 0;i < candidates.length;i++) {
+        await citizensVoteOnPreElectionsCandidate(candidates[i], [accounts[19-i]], admin);
+    }
+
+    await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);    
+
+    await admin.closePreElections();
+
+    await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+    for (let i = 0;i < candidates.length;i++) {
+        await citizensVoteOnElectionsCandidate(candidates[i], [accounts[19-i]], admin);
+    }
+
+    await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+    await admin.closeElections()
+
 }
