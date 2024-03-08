@@ -5,14 +5,13 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, sendValuesInEth, startNewVoting } from '../../utils/helpers';
+import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, generatBytes32InputArray, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, mockHashedAnwers, sendValuesInEth, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 const bytes32 = require('bytes32');
 
-const farFutureDate = 2524687964;
 describe("BVS_Voting", () => {
     before(async () => {
         await helpers.reset();
@@ -63,26 +62,26 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1]]);
             await admin.syncElectedPoliticalActors();
 
             politicalActor = await admin.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate, votingTargetBudget)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE, votingTargetBudget)
 
             votingKey = await politicalActor.votingKeys(0);
 
             await addQuizAndContentCheckAnswersToVoting(admin)
 
-            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+            await time.increaseTo(FAR_FUTURE_DATE - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await admin.approveVoting(votingKey)
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             const account = await admin.connect(accounts[2]);
             const account2 = await admin.connect(accounts[3]);
@@ -102,7 +101,7 @@ describe("BVS_Voting", () => {
         })
 
         it("should forbid to unlock voting budget money when voting did not win", async () => {
-            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
             await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
                 "Voting did not received the majority of support"
@@ -119,7 +118,7 @@ describe("BVS_Voting", () => {
             await account6.voteOnVoting(votingKey, true);
             await account7.voteOnVoting(votingKey, true);
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
             await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
                 "Call failed"
@@ -139,7 +138,7 @@ describe("BVS_Voting", () => {
             await account6.voteOnVoting(votingKey, true);
             await account7.voteOnVoting(votingKey, true);
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION + TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
             const bvsAddress = await admin.getAddress();
             const provider = admin.runner?.provider;
@@ -172,8 +171,13 @@ describe("BVS_Voting", () => {
         })
     })
 
+    describe("_grantCitizenRole", () => {})
+    describe("_grantAdminRole", () => {})
+
+    describe("syncElectedPoliticalActors", () => {})
+
     describe('setFirstVotingCycleStartDate', () => {
-        const firstVotingCycleStartDate = farFutureDate
+        const firstVotingCycleStartDate = FAR_FUTURE_DATE
 
         it('should revert when non ADMINISTRATOR calls it', async () => {
             const bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
@@ -222,7 +226,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('scheduleNewVoting', () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
@@ -349,7 +353,7 @@ describe("BVS_Voting", () => {
 
 
     describe('assignQuizIpfsHashToVoting', () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
 
@@ -395,7 +399,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('addKeccak256HashedAnswerToVotingContent', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
 
@@ -447,7 +451,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('approveVoting', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let newVotingStartDate: number
         let votingKey: string
@@ -486,8 +490,8 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(newVotingStartDate);
 
-            await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
-                "Voting already started"
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWithCustomError(bvsVoting,
+                "VotingAlreadyStarted"
             );
         })
 
@@ -496,8 +500,18 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(newVotingStartDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT - TimeQuantities.HOUR);
 
-            await expect(admin.approveVoting(votingKey)).to.be.revertedWith(
-                "Voting can only be approved 3 days or less before it's start"
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWithCustomError(bvsVoting,
+                "VotingCanBeApproved3DaysOrLessBeforeItsStart"
+            );
+        })
+
+        it('should revert when no enough content check quiz questions added', async () => {
+            const votingKey = await admin.votingKeys(0);
+
+            await time.increaseTo(newVotingStartDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT - TimeQuantities.HOUR);
+
+            await expect(admin.approveVoting(votingKey)).to.be.revertedWithCustomError(bvsVoting,
+                "VotingCanBeApproved3DaysOrLessBeforeItsStart"
             );
         })
 
@@ -514,9 +528,7 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
 
-            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
-
-            await admin.approveArticle(votingKey, articleKey)
+            await assignAnswersToArticle(admin, votingKey, articleKey)
 
             await time.increaseTo(newVotingStartDate - 2 * TimeQuantities.DAY);
 
@@ -538,17 +550,13 @@ describe("BVS_Voting", () => {
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
 
-            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
-
-            await admin.approveArticle(votingKey, articleKey)
+            await assignAnswersToArticle(admin, votingKey, articleKey)
 
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'ipfs-response-hash')
 
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'ipfs-quiz-hash', false)
 
-            await assignAnswersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
-
-            await admin.approveArticleResponse(votingKey, articleKey)
+            await assignAnswersToArticleResponse(admin, votingKey, articleKey)
 
             await time.increaseTo(newVotingStartDate - 2 * TimeQuantities.DAY);
             await admin.approveVoting(votingKey)
@@ -559,7 +567,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('publishProConArticle', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
 
         beforeEach(async () => {
@@ -621,7 +629,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('assignQuizIpfsHashToArticleOrResponse', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string      
@@ -655,8 +663,8 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when article not exists', async () => {
-            await expect(admin.assignQuizIpfsHashToArticleOrResponse(votingKey, votingKey, 'quiz-ipfs-hash', true)).to.be.revertedWith(
-                "Article not exists"
+            await expect(admin.assignQuizIpfsHashToArticleOrResponse(votingKey, votingKey, 'quiz-ipfs-hash', true)).to.be.revertedWithCustomError(bvsVoting,
+                "ArticleNotExists"
             );
         })
 
@@ -674,7 +682,7 @@ describe("BVS_Voting", () => {
     })
 
     describe('addKeccak256HashedAnswerToArticle', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string
@@ -703,98 +711,40 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
 
             await expect(
-                account2.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
+                account2.addKeccak256HashedAnswersToArticle(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
-                "Article content check ipfs not assigned yet"
+            await expect(admin.addKeccak256HashedAnswersToArticle(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])).to.be.revertedWithCustomError(bvsVoting,
+                "NoArticleContentCheckIpfsAssignedToThisArticle"
             );
         })
 
-        it('should add new quiz question answer', async () => {
+        it('should revert when new no enough answers sent', async () => {
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
-             
-            await admin.addKeccak256HashedAnswerToArticle(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
+            
+            await expect(admin.addKeccak256HashedAnswersToArticle(votingKey, articleKey, generatBytes32InputArray(MIN_TOTAL_CONTENT_READ_CHECK_ANSWER-1))).to.be.revertedWithCustomError(bvsVoting,
+                "NoEnoughContentReadQuizAnswerAdded"
+            );
 
-            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
+            assert.equal((await admin.proConArticles(votingKey, articleKey)).isArticleApproved, false)
+        })
+
+
+         it('should make article approved when min required answers get assigned', async () => {
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
+
+            await assignAnswersToArticle(admin, votingKey, articleKey)
+
+            // assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
+            assert.equal(await admin.articleContentReadCheckAnswers(articleKey, 0), mockHashedAnwers[0])
+            assert.equal((await admin.proConArticles(votingKey, articleKey)).isArticleApproved, true)
          })
     })
 
-    describe('approveArticle', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
-        let politicalActor: BVS_Voting
-        let votingKey: string
-        let articleKey: string
-        let newVotingStartDate: number
-
-        beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
-
-            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
-
-            politicalActor = await bvsVoting.connect(accounts[1]);
-
-            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
-
-            newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await startNewVoting(politicalActor, newVotingStartDate)
-
-            votingKey = await politicalActor.votingKeys(0);
-
-            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
-
-            articleKey = await politicalActor.articleKeys(0);
-
-            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', true)
-        })
-
-        it('should revert when account has no ADMINISTRATOR role', async () => {
-            const account2 = await bvsVoting.connect(accounts[2]);
-
-            await expect(
-                account2.approveArticle(votingKey, articleKey)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
-        })
-
-        it('should revert when article not exists', async () => {
-            const votingKey = await politicalActor.votingKeys(0);
-
-            time.increaseTo(newVotingStartDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT - TimeQuantities.HOUR)
-
-            await expect(admin.approveArticle(votingKey, votingKey)).to.be.revertedWith(
-                "Article not exists"
-            );
-        })
-
-        it('should revert when there is no enough answers assigned to the specific article', async () => {
-            const votingKey = await politicalActor.votingKeys(0);
-
-            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER - 1)
-
-            time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
-
-            await expect(admin.approveArticle(votingKey, articleKey)).to.be.revertedWith(
-                "No enough content read check answers added"
-            );
-        })
-
-        it('should approve an article', async () => {
-            await assignAnswersToArticle(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
-
-            await admin.approveArticle(votingKey, articleKey)
-
-            time.increaseTo(newVotingStartDate - 1 * TimeQuantities.DAY)
-
-            assert.equal((await admin.proConArticles(votingKey, articleKey)).isArticleApproved, true)
-        })
-    })
-    
-
     describe('publishProConArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -833,8 +783,8 @@ describe("BVS_Voting", () => {
         it('should revert when voting already started', async () => {
             time.increaseTo(newVotingStartDate)
 
-            await expect(politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWith(
-                "Voting already started"
+            await expect(politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWithCustomError(bvsVoting,
+                "VotingAlreadyStarted"
             );
         })
 
@@ -843,8 +793,8 @@ describe("BVS_Voting", () => {
 
             time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
 
-            await expect(politicalActor2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWith(
-                "This article not related to your voting"
+            await expect(politicalActor2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')).to.be.revertedWithCustomError(bvsVoting,
+                "ArticleNotRelatedToYourVoting"
             );
         })
 
@@ -859,62 +809,14 @@ describe("BVS_Voting", () => {
 
     // assign quiz (assignQuizIpfsHashToArticleOrResponse) - tested
 
-    describe('addKeccak256HashedAnswerToArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
+    describe('addKeccak256HashedAnswersToArticleResponse', async () => {
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
         let politicalActor: BVS_Voting
         let votingKey: string;
         let articleKey: string
+
+        let newVotingStartDate: number;
         
-
-        beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
-
-            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
-
-            politicalActor = await bvsVoting.connect(accounts[1]);
-
-            await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
-
-            const newVotingStartDate = mockFirstVotingCycleStartDate + 12 * TimeQuantities.DAY;
-            await startNewVoting(politicalActor, newVotingStartDate)
-
-            votingKey = await politicalActor.votingKeys(0);
-
-            await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
-
-            articleKey = await politicalActor.articleKeys(0);
-        })
-
-        it('should revert when account has no ADMINISTRATOR role', async () => {
-            const account2 = await bvsVoting.connect(accounts[2]);
-
-            await expect(
-                account2.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
-        })
-
-        it('should revert when article response has no assigned content check quiz yet', async () => {
-            await expect(admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))).to.be.revertedWith(
-                "Content check ipfs not assigned"
-            );
-        })
-
-        it('should add new quiz question answer', async () => {
-            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
-             
-            await admin.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, bytes32({ input: 'hashed-answer'}))
-
-            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
-         })
-    })
-
-    describe('approveArticleResponse', async () => {
-        const mockFirstVotingCycleStartDate = farFutureDate
-        let politicalActor: BVS_Voting
-        let votingKey: string
-        let articleKey: string
-        let newVotingStartDate: number
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
@@ -934,63 +836,71 @@ describe("BVS_Voting", () => {
             await politicalActor.publishProConArticle(votingKey, 'ipfs-hash', true)
 
             articleKey = await politicalActor.articleKeys(0);
-
-            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
         })
 
         it('should revert when account has no ADMINISTRATOR role', async () => {
-            const votingKey = await politicalActor.votingKeys(0);
-
             const account2 = await bvsVoting.connect(accounts[2]);
 
+            await expect(
+                account2.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+        })
+
+        it('should revert when article not exists', async () => {
+            await expect(admin.addKeccak256HashedAnswersToArticleResponse(votingKey, bytes32({ input: 'non-existing-article-key'}), [bytes32({ input: 'hashed-answer'})])).to.be.revertedWithCustomError(admin,
+                "ArticleNotExists"
+            );
+        })
+
+        it('should revert when no article response assigned ', async () => {
+            await expect(admin.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])).to.be.revertedWithCustomError(admin,
+                "NoArticleResponseAssigned"
+            );
+        })
+
+        it('should revert when article response has no assigned content check quiz yet', async () => {
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
 
-            await expect(
-                account2.approveArticleResponse(votingKey, articleKey)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            await expect(admin.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])).to.be.revertedWithCustomError(admin,
+                "NoArticleResponseContentCheckIpfsAssigned"
+            );
         })
 
         it('should revert when voting already started', async () => {
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
 
-            time.increaseTo(newVotingStartDate)
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
 
-            await expect(admin.approveArticleResponse(votingKey, articleKey)).to.be.revertedWith(
-                "Voting already started"
+            time.increaseTo(newVotingStartDate + TimeQuantities.DAY);
+            
+            await expect(admin.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])).to.be.revertedWithCustomError(admin,
+                "VotingAlreadyStarted"
             );
         })
 
-        it('should revert when article not exists', async () => {
+        it('should revert when no enough answers provided', async () => {
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
 
-            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
 
-            await expect(admin.approveArticleResponse(votingKey, votingKey)).to.be.revertedWith(
-                "Article not exists"
+            const answers = generatBytes32InputArray(MIN_TOTAL_CONTENT_READ_CHECK_ANSWER - 1);
+            
+            await expect(admin.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, answers)).to.be.revertedWithCustomError(admin,
+                "NoEnoughContentReadQuizAnswerAdded"
             );
         })
 
-        it('should revert when there is no response sent yet', async () => {
-            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
-
-            await expect(admin.approveArticleResponse(votingKey, articleKey)).to.be.revertedWith(
-                "No response added yet"
-            );
-        })
-
-        it('should approve article response', async () => {
+        it('should add new quiz question answer', async () => {
             await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
 
-            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false)
+            await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'article-content-quiz-ipfs-hash', false)
+             
+            const answers = generatBytes32InputArray(MIN_TOTAL_CONTENT_READ_CHECK_ANSWER);
 
-            await assignAnswersToArticleResponse(admin, votingKey, articleKey, MIN_TOTAL_CONTENT_READ_CHECK_ANSWER)
+            await admin.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, answers)
 
-            time.increaseTo(newVotingStartDate - TimeQuantities.DAY)
-
-            await admin.approveArticleResponse(votingKey, articleKey)
-
-            assert.equal((await politicalActor.proConArticles(votingKey, articleKey)).isResponseApproved, true)
-        })
+            assert.equal(await admin.articleContentResponseReadCheckAnswers(articleKey, 0), bytes32({ input: 'hashed-answer'}))
+         })
     })
 
     describe("getAccountVotingQuizAnswerIndexes", async () => {
@@ -998,7 +908,7 @@ describe("BVS_Voting", () => {
         let votingKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - (VOTING_DURATION - TimeQuantities.DAY));
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - (VOTING_DURATION - TimeQuantities.DAY));
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1006,9 +916,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - (VOTING_DURATION - 2 * TimeQuantities.DAY));
+            await time.increaseTo(FAR_FUTURE_DATE - (VOTING_DURATION - 2 * TimeQuantities.DAY));
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -1041,7 +951,7 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1049,9 +959,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -1063,7 +973,7 @@ describe("BVS_Voting", () => {
             
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true);
 
-            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey);
         })
 
         
@@ -1091,7 +1001,7 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1099,9 +1009,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -1113,7 +1023,7 @@ describe("BVS_Voting", () => {
             
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false);
 
-            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey);
         })
 
         
@@ -1140,7 +1050,7 @@ describe("BVS_Voting", () => {
         let votingKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1148,9 +1058,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -1204,7 +1114,7 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1212,9 +1122,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             votingKey = await politicalActor.votingKeys(0);
             await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
@@ -1229,7 +1139,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when account has no CITIZEN role', async () => {
-            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey);
 
             const account2 = await bvsVoting.connect(accounts[23]);
 
@@ -1239,7 +1149,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when article quiz already completed', async () => {
-            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey);
 
             await completeArticle(admin, accounts[1])
 
@@ -1251,7 +1161,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
-            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey);
 
             const account = await bvsVoting.connect(accounts[1]);
 
@@ -1267,7 +1177,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should complete article quiz when provided answers are correct', async () => {
-            await assignAnswersToArticle(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticle(bvsVoting, votingKey, articleKey);
 
             await completeArticle(admin, accounts[1])
 
@@ -1282,7 +1192,7 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1290,9 +1200,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate);
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE);
 
             votingKey = await politicalActor.votingKeys(0);
 
@@ -1306,7 +1216,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when account has no CITIZEN role', async () => {
-            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey);
 
             const account2 = await bvsVoting.connect(accounts[24]);
 
@@ -1316,7 +1226,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when citizen already completed the quiz', async () => {
-            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey);
 
             await completeArticleResponse(admin, accounts[1])
 
@@ -1328,7 +1238,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
-            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey);
 
             const account = await bvsVoting.connect(accounts[1]);
 
@@ -1344,7 +1254,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should complete article response quiz when provided answers are correct', async () => {
-            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey, 10);
+            await assignAnswersToArticleResponse(bvsVoting, votingKey, articleKey);
 
             await completeArticleResponse(admin, accounts[1])
 
@@ -1358,7 +1268,7 @@ describe("BVS_Voting", () => {
         let articleKey: string
 
         beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(farFutureDate - 13 * TimeQuantities.DAY);
+            await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
             await admin.syncElectedPoliticalActors();
@@ -1366,9 +1276,9 @@ describe("BVS_Voting", () => {
             politicalActor = await bvsVoting.connect(accounts[1]);
 
 
-            await time.increaseTo(farFutureDate - 12 * TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
 
-            await startNewVoting(politicalActor, farFutureDate)
+            await startNewVoting(politicalActor, FAR_FUTURE_DATE)
 
             await addQuizAndContentCheckAnswersToVoting(admin)
 
@@ -1395,7 +1305,7 @@ describe("BVS_Voting", () => {
         it('should revert when voting already finished', async () => {
             const account = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION);
 
             await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
                 "Voting is not yet started or it is already finished"
@@ -1405,7 +1315,7 @@ describe("BVS_Voting", () => {
         it('should revert when voting not approved', async () => {
             const account = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
                 "Voting is not approved for some reason"
@@ -1415,11 +1325,11 @@ describe("BVS_Voting", () => {
         it('should revert when citizen did not completed voting content check quiz', async () => {
             const account = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+            await time.increaseTo(FAR_FUTURE_DATE - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await admin.approveVoting(votingKey)
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             await expect(account.voteOnVoting(votingKey, true)).to.be.revertedWith(
                 "Content check quiz not completed"
@@ -1429,11 +1339,11 @@ describe("BVS_Voting", () => {
         it('should revert when citizen already voted', async () => {
             const account = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+            await time.increaseTo(FAR_FUTURE_DATE - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await admin.approveVoting(votingKey)
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             await completeVoting(admin, accounts[1]);
 
@@ -1455,11 +1365,11 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[2]);
             const account3 = await bvsVoting.connect(accounts[3]);
 
-            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+            await time.increaseTo(FAR_FUTURE_DATE - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await admin.approveVoting(votingKey)
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             assert.equal((await admin.votings(votingKey)).voteOnAScore, BigInt(0));
             assert.equal((await admin.votings(votingKey)).voteOnBScore, BigInt(0));
@@ -1481,7 +1391,7 @@ describe("BVS_Voting", () => {
         it('should count citizen voting score properly when citizen completed related articles', async () => {
             const account = await bvsVoting.connect(accounts[1]);
 
-            await time.increaseTo(farFutureDate - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
+            await time.increaseTo(FAR_FUTURE_DATE - APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT);
 
             await admin.approveVoting(votingKey)
 
@@ -1497,7 +1407,7 @@ describe("BVS_Voting", () => {
 
             await addResponseToArticleWithQuizAndAnswers(admin, accounts[1]);
 
-            await time.increaseTo(farFutureDate + VOTING_DURATION - TimeQuantities.DAY);
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
             await completeVoting(admin, accounts[1]);
 

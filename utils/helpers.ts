@@ -23,6 +23,8 @@ export enum FundingSizeLevels {
     LARGE = 2
 }
 
+export const FAR_FUTURE_DATE = 2524687964; // GMT: 2050. January 1., Saturday 22:12:44
+
 const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
 const hourInMiliSec = 60 * 60;
@@ -116,16 +118,22 @@ export const assignAnswersToVoting = async (contract: BVS_Voting, votingKey: str
     }
 }
 
-export const assignAnswersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
-    for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticle(votingKey, articleKey, hashedAnswers[i])
-    }
+export const assignAnswersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, hashedAnswers = mockHashedAnwers) => {
+    await contract.addKeccak256HashedAnswersToArticle(votingKey, articleKey, hashedAnswers)
 }
 
-export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
-    for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToArticleResponse(votingKey, articleKey, hashedAnswers[i])
+export const assignAnswersToArticleResponse = async (contract: BVS_Voting, votingKey: string, articleKey: string, hashedAnswers = mockHashedAnwers) => {
+    await contract.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, hashedAnswers)
+}
+
+// generate required answer hashes
+
+export const generatBytes32InputArray = (arrayLength = 0) => {
+    const items = []
+    for (let i = 0; i < arrayLength;i++) {
+        items.push(bytes32({ input: 'hashed-answer'}));
     }
+    return items;
 }
 
 // startNewVotingWithQuizAndContentCheckAnswers
@@ -155,7 +163,7 @@ export const addArticleToVotingWithQuizAndAnswers = async (admin: BVS_Voting, cr
 
     await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true)
 
-    await assignAnswersToArticle(admin, votingKey, articleKey, 10)
+    await assignAnswersToArticle(admin, votingKey, articleKey)
 }
 
 export const addResponseToArticleWithQuizAndAnswers = async (admin: BVS_Voting, politicalActorAccountWhoStartedTheVoting: SignerWithAddress) => {
@@ -169,7 +177,7 @@ export const addResponseToArticleWithQuizAndAnswers = async (admin: BVS_Voting, 
 
     await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false)
 
-    await assignAnswersToArticleResponse(admin, votingKey, articleKey, 10)
+    await assignAnswersToArticleResponse(admin, votingKey, articleKey)
 }
 
 // completeVoting

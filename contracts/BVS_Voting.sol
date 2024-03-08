@@ -19,7 +19,8 @@ import "hardhat/console.sol";
  */
 
 contract BVS_Voting is BVS_Roles {
-    uint public firstVotingCycleStartDate;
+    // CONSTANTS
+
     uint public constant VOTING_CYCLE_INTERVAL = 30 days;
     uint public constant VOTING_DURATION = 14 days;
     uint public constant APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT = 3 days;
@@ -33,7 +34,9 @@ contract BVS_Voting is BVS_Roles {
     uint public constant MIN_VOTE_SCORE = 5;
     uint public constant MIN_PERCENTAGE_OF_VOTES = 10;
 
-    error NotYetActiveVoting();
+    uint public firstVotingCycleStartDate;
+
+    // DATA OBJECTS
 
     struct ProConArticle {
         bytes32 votingKey;
@@ -103,16 +106,131 @@ contract BVS_Voting is BVS_Roles {
     BVS_Elections public immutable bvsElections;
     BVS_Funding public immutable bvsFuding;
 
+    // ERRORS **************************************************************
+
+    error VotingAlreadyStarted();
+    error VotingCanBeApproved3DaysOrLessBeforeItsStart();
+
+    error ArticleNotExists();
+    error ArticleNotRelatedToYourVoting();
+    error ContentCheckIpfsNotAssigned();
+    error NoArticleContentCheckIpfsAssignedToThisArticle();
+
+    error NoArticleResponseAssigned();
+    error NoArticleResponseContentCheckIpfsAssigned();
+
+    error NoEnoughContentReadQuizAnswerAdded();
+
+    modifier criticisedArticleRelatedToYourVoting(
+        bytes32 _votingKey,
+        bytes32 _proConArticleKey
+    ) {
+        if (
+            votings[proConArticles[_votingKey][_proConArticleKey].votingKey]
+                .creator != msg.sender
+        ) revert ArticleNotRelatedToYourVoting();
+        _;
+    }
+
+    modifier hasContentIpfs(bytes32 _votingKey, bytes32 _articleKey) {
+        if (
+            isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .responseContentCheckQuizIpfsHash
+            )
+        ) revert ContentCheckIpfsNotAssigned();
+        _;
+    }
+
+    modifier votingNotYetStarted(bytes32 _votingKey) {
+        if (votings[_votingKey].startDate < block.timestamp) {
+            revert VotingAlreadyStarted();
+        }
+        _;
+    }
+
+    modifier approveAttempt3DaysBeforeVotingStarts(bytes32 _votingKey) {
+        if (
+            votings[_votingKey].startDate -
+                APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT >
+            block.timestamp
+        ) {
+            revert VotingCanBeApproved3DaysOrLessBeforeItsStart();
+        }
+        _;
+    }
+
+    modifier enoughContentReadQuizAnswerAdded(
+        bytes32[] memory _keccak256HashedAnswers
+    ) {
+        if (
+            _keccak256HashedAnswers.length < MIN_TOTAL_CONTENT_READ_CHECK_ANSWER
+        ) {
+            revert NoEnoughContentReadQuizAnswerAdded();
+        }
+        _;
+    }
+
+    modifier hasArticleContentIpfsHashAssigned(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) {
+        if (
+            isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .articleContentCheckQuizIpfsHash
+            )
+        ) {
+            revert NoArticleContentCheckIpfsAssignedToThisArticle();
+        }
+        _;
+    }
+
+    modifier articleShouldExists(bytes32 _votingKey, bytes32 _articleKey) {
+        if (proConArticles[_votingKey][_articleKey].publisher == address(0)) {
+            revert ArticleNotExists();
+        }
+        _;
+    }
+
+    modifier hasArticleReponseAssigned(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) {
+        if (
+            isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .responseStatementIpfsHash
+            )
+        ) {
+            revert NoArticleResponseAssigned();
+        }
+        _;
+    }
+
+    modifier hasArticleResponseContentCheckIpfsHash(
+        bytes32 _votingKey,
+        bytes32 _articleKey
+    ) {
+        if (
+            isEmptyString(
+                proConArticles[_votingKey][_articleKey]
+                    .responseContentCheckQuizIpfsHash
+            )
+        ) {
+            revert NoArticleResponseContentCheckIpfsAssigned();
+        }
+        _;
+    }
+
+    // CONTRACT LOGIC *****************************************************************
+
     constructor(address priceFeed) BVS_Roles() {
         bvsHelpers = new BVS_Helpers();
         bvsElections = new BVS_Elections();
-        bvsElections.grantAdministratorRole(msg.sender);
+        bvsElections.sendGrantAdministratorRoleApproval(msg.sender);
         bvsElections.grantCitizenRole(msg.sender);
         bvsFuding = new BVS_Funding(priceFeed);
-    }
-
-    function revokeMySuperAdminRole() public onlyRole(SUPER_ADMINISTRATOR) {
-        _revokeRole(SUPER_ADMINISTRATOR, msg.sender);
     }
 
     function fund(string memory email) public payable {
@@ -127,8 +245,8 @@ contract BVS_Voting is BVS_Roles {
     }
 
     function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {
-        grantAdministratorRole(_account);
-        bvsElections.grantAdministratorRole(_account);
+        sendGrantAdministratorRoleApproval(_account);
+        bvsElections.sendGrantAdministratorRoleApproval(_account);
     }
 
     function unlockVotingBudget(
@@ -278,19 +396,17 @@ contract BVS_Voting is BVS_Roles {
         votingContentReadCheckAnswers[_votingKey].push(_keccak256HashedAnswer);
     }
 
-    function approveVoting(bytes32 _votingKey) public onlyRole(ADMINISTRATOR) {
-        votingShouldNotYetStarted(_votingKey);
-        require(
-            votings[_votingKey].startDate -
-                APPROVE_VOTING_BEFORE_IT_STARTS_LIMIT <
-                block.timestamp,
-            "Voting can only be approved 3 days or less before it's start"
-        );
-        require(
-            votingContentReadCheckAnswers[_votingKey].length >=
-                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "No enough content read quiz answer added"
-        );
+    function approveVoting(
+        bytes32 _votingKey
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        votingNotYetStarted(_votingKey)
+        approveAttempt3DaysBeforeVotingStarts(_votingKey)
+        enoughContentReadQuizAnswerAdded(
+            votingContentReadCheckAnswers[_votingKey]
+        )
+    {
         // make sure the creator of the voting responded for all the ciritcal articles
         bool isRespondedAllTheCritics = true;
         uint articleKeysLength = articleKeys.length;
@@ -347,13 +463,17 @@ contract BVS_Voting is BVS_Roles {
         publishArticleToVotingsCount[msg.sender][_votingKey]++;
     }
 
+    // FIX ME
     function assignQuizIpfsHashToArticleOrResponse(
         bytes32 _votingKey,
         bytes32 _articleKey,
         string memory _quizIpfsHash,
         bool assignToArticleContent
-    ) public onlyRole(ADMINISTRATOR) {
-        articleShouldExists(_votingKey, _articleKey);
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        articleShouldExists(_votingKey, _articleKey)
+    {
         if (assignToArticleContent) {
             proConArticles[_votingKey][_articleKey]
                 .articleContentCheckQuizIpfsHash = _quizIpfsHash;
@@ -363,90 +483,50 @@ contract BVS_Voting is BVS_Roles {
         }
     }
 
-    function addKeccak256HashedAnswerToArticle(
+    function addKeccak256HashedAnswersToArticle(
         bytes32 _votingKey,
         bytes32 _articleKey,
-        bytes32 _keccak256HashedAnswer
-    ) public onlyRole(ADMINISTRATOR) {
-        require(
-            !isEmptyString(
-                proConArticles[_votingKey][_articleKey]
-                    .articleContentCheckQuizIpfsHash
-            ),
-            "Article content check ipfs not assigned yet"
-        );
-        articleContentReadCheckAnswers[_articleKey].push(
-            _keccak256HashedAnswer
-        );
-    }
-
-    function approveArticle(
-        bytes32 _votingKey,
-        bytes32 _articleKey
-    ) public onlyRole(ADMINISTRATOR) {
-        votingShouldNotYetStarted(_votingKey);
-        articleShouldExists(_votingKey, _articleKey);
-        require(
-            articleContentReadCheckAnswers[_articleKey].length >=
-                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "No enough content read check answers added"
-        );
+        bytes32[] memory _keccak256HashedAnswers
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        hasArticleContentIpfsHashAssigned(_votingKey, _articleKey)
+        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
+    {
         proConArticles[_votingKey][_articleKey].isArticleApproved = true;
+        articleContentReadCheckAnswers[_articleKey] = _keccak256HashedAnswers;
     }
 
     function publishProConArticleResponse(
         bytes32 _votingKey,
         bytes32 _proConArticleKey,
         string memory _ipfsHash
-    ) public onlyRole(POLITICAL_ACTOR) {
-        votingShouldNotYetStarted(_votingKey);
-
-        require(
-            votings[proConArticles[_votingKey][_proConArticleKey].votingKey]
-                .creator == msg.sender,
-            "This article not related to your voting"
-        );
-
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        votingNotYetStarted(_votingKey)
+        criticisedArticleRelatedToYourVoting(_votingKey, _proConArticleKey)
+    {
         proConArticles[_votingKey][_proConArticleKey]
             .responseStatementIpfsHash = _ipfsHash;
     }
 
-    function addKeccak256HashedAnswerToArticleResponse(
+    function addKeccak256HashedAnswersToArticleResponse(
         bytes32 _votingKey,
         bytes32 _articleKey,
-        bytes32 _keccak256HashedAnswer
-    ) public onlyRole(ADMINISTRATOR) {
-        require(
-            !isEmptyString(
-                proConArticles[_votingKey][_articleKey]
-                    .responseContentCheckQuizIpfsHash
-            ),
-            "Content check ipfs not assigned"
-        );
-
-        articleContentResponseReadCheckAnswers[_articleKey].push(
-            _keccak256HashedAnswer
-        );
-    }
-
-    function approveArticleResponse(
-        bytes32 _votingKey,
-        bytes32 _articleKey
-    ) public onlyRole(ADMINISTRATOR) {
-        votingShouldNotYetStarted(_votingKey);
-        articleShouldExists(_votingKey, _articleKey);
-        require(
-            !isEmptyString(
-                proConArticles[_votingKey][_articleKey]
-                    .responseStatementIpfsHash
-            ),
-            "No response added yet"
-        );
-        require(
-            articleContentResponseReadCheckAnswers[_articleKey].length >=
-                MIN_TOTAL_CONTENT_READ_CHECK_ANSWER,
-            "No enough content check answers"
-        );
+        bytes32[] memory _keccak256HashedAnswers
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        articleShouldExists(_votingKey, _articleKey)
+        hasArticleReponseAssigned(_votingKey, _articleKey)
+        hasArticleResponseContentCheckIpfsHash(_votingKey, _articleKey)
+        votingNotYetStarted(_votingKey)
+        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
+    {
+        articleContentResponseReadCheckAnswers[
+            _articleKey
+        ] = _keccak256HashedAnswers;
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
 
@@ -746,23 +826,6 @@ contract BVS_Voting is BVS_Roles {
                 votings[_votingKey].voteOnBScore >
                 votings[_votingKey].voteOnAScore;
         }
-    }
-
-    function articleShouldExists(
-        bytes32 _votingKey,
-        bytes32 _articleKey
-    ) public view {
-        require(
-            proConArticles[_votingKey][_articleKey].publisher != address(0),
-            "Article not exists"
-        );
-    }
-
-    function votingShouldNotYetStarted(bytes32 _votingKey) public view {
-        require(
-            votings[_votingKey].startDate > block.timestamp,
-            "Voting already started"
-        );
     }
 
     function getVoting(bytes32 _votingKey) public view returns (Voting memory) {

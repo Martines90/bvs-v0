@@ -34,7 +34,29 @@ er = ellenző cikkekre adott reakció kommentek
 
 A BVS okosszerződésből egy új példányt, néhány egyszerű lépéssel bármilyen társadalmi-politikai közösség létrehozhat maga számára.
 
-Try running some of the following tasks:
+
+# Techical info:
+
+### Tech stack:
+
+- Solidity
+- Hardhat
+- javascript/typescript
+- Chai
+
+### setup project
+
+- checkout repo
+- install yarn
+- run: yarn
+
+### testing
+
+Contracts size report:
+
+run: yarn run hardhat size-contracts
+
+### Useful commands:
 
 ```shell
 npx hardhat help
