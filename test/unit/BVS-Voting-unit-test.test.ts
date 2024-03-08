@@ -1020,6 +1020,8 @@ describe("BVS_Voting", () => {
             await politicalActor2.publishProConArticle(votingKey, 'ipfs-hash', true)
 
             articleKey = await politicalActor.articleKeys(0);
+
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'ipfs-response-hash')
             
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false);
 
@@ -1028,14 +1030,14 @@ describe("BVS_Voting", () => {
 
         
         const mockAccountAddresses = [
-            { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', expected: [BigInt(2), BigInt(5), BigInt(4), BigInt(8), BigInt(9)] },
-            { address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', expected: [BigInt(1), BigInt(2), BigInt(5), BigInt(6), BigInt(7)] },
-            { address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', expected: [BigInt(6), BigInt(2), BigInt(3), BigInt(7), BigInt(9)] },
-            { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', expected: [BigInt(10), BigInt(4), BigInt(7), BigInt(9), BigInt(8)] },
-            { address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', expected: [BigInt(10), BigInt(9), BigInt(8), BigInt(7), BigInt(1)] },
-            { address: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', expected: [BigInt(5), BigInt(6), BigInt(1), BigInt(7), BigInt(4)] },
-            { address: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', expected: [BigInt(8), BigInt(7), BigInt(9), BigInt(5), BigInt(10)] },
-            { address: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', expected: [BigInt(1), BigInt(10), BigInt(4), BigInt(3), BigInt(2)] },
+            { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', expected: [BigInt(9), BigInt(2), BigInt(4), BigInt(10), BigInt(5)] },
+            { address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', expected: [BigInt(8), BigInt(9), BigInt(4), BigInt(5), BigInt(1)] },
+            { address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', expected: [BigInt(10), BigInt(6), BigInt(7), BigInt(8), BigInt(9)] },
+            { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', expected: [BigInt(8), BigInt(6), BigInt(4), BigInt(5), BigInt(7)] },
+            { address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', expected: [BigInt(3), BigInt(1), BigInt(4), BigInt(8), BigInt(5)] },
+            { address: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', expected: [BigInt(2), BigInt(3), BigInt(1), BigInt(10), BigInt(4)] },
+            { address: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', expected: [BigInt(8), BigInt(2), BigInt(7), BigInt(10), BigInt(3)] },
+            { address: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', expected: [BigInt(10), BigInt(1), BigInt(7), BigInt(5), BigInt(6)] },
         ];
 
         mockAccountAddresses.forEach((item) => {
@@ -1211,6 +1213,8 @@ describe("BVS_Voting", () => {
             await addArticleToVotingWithQuizAndAnswers(admin, accounts[2], true)
 
             articleKey = await politicalActor.articleKeys(0);
+
+            await politicalActor.publishProConArticleResponse(votingKey, articleKey, 'article-response-ipfs-hash')
             
             await admin.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', false);
         })

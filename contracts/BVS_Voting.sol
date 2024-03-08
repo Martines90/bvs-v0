@@ -463,7 +463,6 @@ contract BVS_Voting is BVS_Roles {
         publishArticleToVotingsCount[msg.sender][_votingKey]++;
     }
 
-    // FIX ME
     function assignQuizIpfsHashToArticleOrResponse(
         bytes32 _votingKey,
         bytes32 _articleKey,
