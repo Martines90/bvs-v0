@@ -1079,7 +1079,7 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe("completeVotingContentReadQuiz", async () => {
+    describe("completeContentReadQuiz - voting", async () => {
         let politicalActor: BVS_Voting
         let votingKey: string
 
@@ -1108,7 +1108,7 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[27]);
 
             await expect(
-                account2.completeVotingContentReadQuiz(votingKey, [])
+                account2.completeContentReadQuiz(1, votingKey, bytes32(""), [])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[27].address, Roles.CITIZEN));
         })
 
@@ -1119,7 +1119,7 @@ describe("BVS_Voting", () => {
 
             const account = await bvsVoting.connect(accounts[1]);
 
-            await expect(account.completeVotingContentReadQuiz(votingKey, [
+            await expect(account.completeContentReadQuiz(1, votingKey, bytes32(""), [
                 "answer-1",
                 "answer-2",
                 "answer-3",
@@ -1142,7 +1142,7 @@ describe("BVS_Voting", () => {
     })
 
 
-    describe("completeArticleReadQuiz", async () => {
+    describe("completeContentReadQuiz - article", async () => {
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -1178,7 +1178,7 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[23]);
 
             await expect(
-                account2.completeArticleReadQuiz(votingKey, articleKey, [])
+                account2.completeContentReadQuiz(2, votingKey, articleKey, [])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
         })
 
@@ -1187,7 +1187,7 @@ describe("BVS_Voting", () => {
 
             const account = await bvsVoting.connect(accounts[1]);
 
-            await expect(account.completeArticleReadQuiz(votingKey, articleKey, [
+            await expect(account.completeContentReadQuiz(2, votingKey, articleKey, [
                 "answer-1",
                 "answer-2",
                 "answer-3",
@@ -1208,7 +1208,7 @@ describe("BVS_Voting", () => {
     })
 
 
-    describe("completeArticleResponseQuiz", async () => {
+    describe("completeContentReadQuiz - article respond", async () => {
         let politicalActor: BVS_Voting
         let votingKey: string
         let articleKey: string
@@ -1245,7 +1245,7 @@ describe("BVS_Voting", () => {
             const account2 = await bvsVoting.connect(accounts[24]);
 
             await expect(
-                account2.completeArticleResponseQuiz(votingKey, articleKey, [])
+                account2.completeContentReadQuiz(3, votingKey, articleKey, [])
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[24].address, Roles.CITIZEN));
         })
 
@@ -1254,7 +1254,7 @@ describe("BVS_Voting", () => {
 
             const account = await bvsVoting.connect(accounts[1]);
 
-            await expect(account.completeArticleResponseQuiz(votingKey, articleKey, [
+            await expect(account.completeContentReadQuiz(3, votingKey, articleKey, [
                 "answer-1",
                 "answer-2",
                 "answer-3",

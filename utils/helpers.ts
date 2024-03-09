@@ -193,7 +193,7 @@ export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWith
         await admin.grantCitizenRole(voterAccount)
     }
 
-    await voter.completeVotingContentReadQuiz(votingKey, answers);
+    await voter.completeContentReadQuiz(1, votingKey, bytes32(""), answers);
 }
 
 // completeArticle
@@ -212,7 +212,7 @@ export const completeArticle = async (admin: BVS_Voting, voterAccount: SignerWit
         await admin.grantCitizenRole(voterAccount)
     }
 
-    await voter.completeArticleReadQuiz(votingKey, articleKey, answers);
+    await voter.completeContentReadQuiz(2, votingKey, articleKey, answers);
 }
 
 
@@ -232,7 +232,7 @@ export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: S
         await admin.grantCitizenRole(voterAccount)
     }
 
-    await voter.completeArticleResponseQuiz(votingKey, articleKey, answers);
+    await voter.completeContentReadQuiz(3, votingKey, articleKey, answers);
 }
 
 

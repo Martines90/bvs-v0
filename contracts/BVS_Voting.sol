@@ -657,66 +657,61 @@ contract BVS_Voting is BVS_Roles {
         proConArticles[_votingKey][_articleKey].isResponseApproved = true;
     }
 
-    function completeVotingContentReadQuiz(
-        bytes32 _votingKey,
-        string[] memory _answers
-    ) public onlyRole(CITIZEN) {
-        uint[] memory answerIndexes = getAccountVotingQuizAnswerIndexes(
-            _votingKey,
-            msg.sender
-        );
-
-        bool isCorrect = isContentReadQuizCorrect(
-            answerIndexes,
-            votingContentReadCheckAnswers[_votingKey],
-            _answers
-        );
-
-        require(isCorrect, "Some of your provided answers are wrong");
-        votes[msg.sender][_votingKey].isContentCompleted = true;
-    }
-
-    function completeArticleReadQuiz(
+    function completeContentReadQuiz(
+        uint contentType,
         bytes32 _votingKey,
         bytes32 _articleKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
-        uint[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
-            _votingKey,
-            _articleKey,
-            msg.sender
-        );
+        uint[] memory answerIndexes;
+        bool isCorrect;
 
-        bool isCorrect = isContentReadQuizCorrect(
-            answerIndexes,
-            articleContentReadCheckAnswers[_articleKey],
-            _answers
-        );
+        // voting
+        if (contentType == 1) {
+            answerIndexes = getAccountVotingQuizAnswerIndexes(
+                _votingKey,
+                msg.sender
+            );
 
-        require(isCorrect, "Some of your provided answers are wrong");
-        articlesCompleted[msg.sender].push(_articleKey);
-    }
-
-    function completeArticleResponseQuiz(
-        bytes32 _votingKey,
-        bytes32 _articleKey,
-        string[] memory _answers
-    ) public onlyRole(CITIZEN) {
-        uint[]
-            memory answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                votingContentReadCheckAnswers[_votingKey],
+                _answers
+            );
+            votes[msg.sender][_votingKey].isContentCompleted = true;
+        }
+        // article
+        else if (contentType == 2) {
+            answerIndexes = getAccountArticleQuizAnswerIndexes(
                 _votingKey,
                 _articleKey,
                 msg.sender
             );
 
-        bool isCorrect = isContentReadQuizCorrect(
-            answerIndexes,
-            articleContentResponseReadCheckAnswers[_articleKey],
-            _answers
-        );
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                articleContentReadCheckAnswers[_articleKey],
+                _answers
+            );
+            articlesCompleted[msg.sender].push(_articleKey);
+            // article respond
+        } else if (contentType == 3) {
+            answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
+                _votingKey,
+                _articleKey,
+                msg.sender
+            );
+
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                articleContentResponseReadCheckAnswers[_articleKey],
+                _answers
+            );
+
+            articlesResponseCompleted[msg.sender].push(_articleKey);
+        }
 
         require(isCorrect, "Some of your provided answers are wrong");
-        articlesResponseCompleted[msg.sender].push(_articleKey);
     }
 
     function calculateVoteScore(

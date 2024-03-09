@@ -36,8 +36,15 @@ contract BVS_Roles is Permissions {
     mapping(address => mapping(uint => uint)) public dailyCitizenApprovalCount;
 
     // Events
-    event adminRoleGranted(address account);
     event adminRoleRevoked(address account);
+
+    // Errors
+    error CitizenRoleAlreadyGranted();
+
+    modifier hasNoCitizenRole(address _account) {
+        if (hasRole(CITIZEN, _account)) revert CitizenRoleAlreadyGranted();
+        _;
+    }
 
     constructor() {
         admins.push(msg.sender);
@@ -50,10 +57,6 @@ contract BVS_Roles is Permissions {
     function sendGrantAdministratorRoleApproval(
         address _account
     ) public onlyRole(ADMINISTRATOR) {
-        require(
-            !hasRole(ADMINISTRATOR, _account),
-            "Admin role already granted"
-        );
         bool adminRoleGrantApprovalAlreadySent = false;
         for (
             uint i = 0;
@@ -74,11 +77,11 @@ contract BVS_Roles is Permissions {
 
         if (
             (adminRoleGrantApprovals[_account] * 1000) / admins.length >=
-            MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
+            MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10 &&
+            !hasRole(ADMINISTRATOR, _account)
         ) {
             _setupRole(ADMINISTRATOR, _account);
             admins.push(_account);
-            emit adminRoleGranted(_account);
         }
     }
 
@@ -109,8 +112,10 @@ contract BVS_Roles is Permissions {
         }
     }*/
 
-    function grantCitizenRole(address account) public onlyRole(ADMINISTRATOR) {
-        /*  require(!hasRole(CITIZEN, account), "Citizen role already granted");
+    function grantCitizenRole(
+        address _account
+    ) public onlyRole(ADMINISTRATOR) hasNoCitizenRole(_account) {
+        /*  require(!hasRole(CITIZEN, _account), "Citizen role already granted");
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
 
         uint maxCitizensCanBeAddPerAdmin = (citizens.length /
@@ -125,8 +130,8 @@ contract BVS_Roles is Permissions {
         );
 
         dailyCitizenApprovalCount[msg.sender][daysPassed]++;*/
-        _setupRole(CITIZEN, account);
-        citizens.push(account);
+        _setupRole(CITIZEN, _account);
+        citizens.push(_account);
     }
 
     function checkIfAccounthasRole(

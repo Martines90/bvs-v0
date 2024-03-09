@@ -61,14 +61,6 @@ describe("BVS_Roles", () => {
             assert.equal((await bvsRolesAccount0.getAdminsSize()), BigInt(2));
         });
 
-        it("should revert when account already registered", async () => {
-            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
-
-            await bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[2])
-
-            await expect(bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[2])).to.be.revertedWith('Admin role already granted');
-        });
-
         it("should revert when admin already sent his grant approval", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
@@ -134,7 +126,7 @@ describe("BVS_Roles", () => {
 
             await bvsRolesAccount1.grantCitizenRole(accounts[2])
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWith('Citizen role already granted');
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
         });
     })
 })
