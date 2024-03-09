@@ -32,7 +32,7 @@ Here's a closer look at how BVS functions under the hood:
 
    The **Voting Score** is calculated with the formula: 
    
-   \[ \text{Voting Score} = 5 + \frac{(sa + oa - |sa - oa|)}{2} \times 25 + |sa - oa| \times 5 + \frac{(sc + oc - |sc - oc|)}{2} \times 10 + |sc - oc| \times 2 \]
+   $$\text{Voting Score} = 5 + \frac{(sa + oa - |sa - oa|)}{2} \times 25 + |sa - oa| \times 5 + \frac{(sc + oc - |sc - oc|)}{2} \times 10 + |sc - oc| \times 2 $$
 
 3. **Vote Casting**: Voters cast their votes on a secure platform, where each vote is adjusted by the voter's calculated Voting Score to determine its final impact.
 
