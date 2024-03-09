@@ -118,14 +118,26 @@ contract BVS_Voting is BVS_Roles {
 
     error NoArticleResponseAssigned();
     error NoArticleResponseContentCheckIpfsAssigned();
+    error NoMorePublishArticleCreditsRelatedToThisVoting();
 
     error NoEnoughContentReadQuizAnswerAdded();
 
+    error FirstVotingCycleStartDateHasToBeInTheFuture();
+    error NoOngoingVotingPeriod();
+    error NewVotingHasToBeScheduled10DaysAhead();
+    error NewVotingHasToBeScheduledLessThan30daysAhead();
+
+    error VotingNotExists();
+    error VotingNotYetStartedOrAlreadyFinished();
     error VotingNotBelongsToSender();
     error VotingDidNotWon();
     error VotingNotFinished();
     error VotingNotApproved();
+    error VotingContentCheckQuizNotCompleted();
+    error AlreadyVotedOnThisVoting();
     error NoEnoughVotesReceived();
+    error VotingContentCheckQuizNotAssigned();
+    error VotingOwnerNotRespondedOnAllArticles();
 
     modifier criticisedArticleRelatedToYourVoting(
         bytes32 _votingKey,
@@ -145,6 +157,15 @@ contract BVS_Voting is BVS_Roles {
                     .responseContentCheckQuizIpfsHash
             )
         ) revert ContentCheckIpfsNotAssigned();
+        _;
+    }
+
+    modifier firstVotingCycleStartDateIsInTheFuture(
+        uint _firstVotingCycleStartDate
+    ) {
+        if (_firstVotingCycleStartDate < block.timestamp) {
+            revert FirstVotingCycleStartDateHasToBeInTheFuture();
+        }
         _;
     }
 
@@ -189,6 +210,92 @@ contract BVS_Voting is BVS_Roles {
             MIN_PERCENTAGE_OF_VOTES
         ) {
             revert NoEnoughVotesReceived();
+        }
+        _;
+    }
+
+    modifier votingExists(bytes32 _votingKey) {
+        if (votings[_votingKey].creator == address(0)) {
+            revert VotingNotExists();
+        }
+        _;
+    }
+
+    modifier votingPeriodIsActive() {
+        if (
+            firstVotingCycleStartDate > block.timestamp ||
+            firstVotingCycleStartDate == 0
+        ) {
+            revert NoOngoingVotingPeriod();
+        }
+        _;
+    }
+
+    modifier votingIsOngoing(bytes32 _votingKey) {
+        if (
+            votings[_votingKey].startDate > block.timestamp ||
+            votings[_votingKey].startDate + VOTING_DURATION < block.timestamp
+        ) {
+            revert VotingNotYetStartedOrAlreadyFinished();
+        }
+        _;
+    }
+
+    modifier contentCheckQuizCompleted(bytes32 _votingKey) {
+        if (!votes[msg.sender][_votingKey].isContentCompleted) {
+            revert VotingContentCheckQuizNotCompleted();
+        }
+        _;
+    }
+
+    modifier notVotedYetOnThisVoting(bytes32 _votingKey) {
+        if (votes[msg.sender][_votingKey].voted) {
+            revert AlreadyVotedOnThisVoting();
+        }
+        _;
+    }
+
+    modifier newVotingScheduledAtLeast10daysAhead(uint _startDate) {
+        if (
+            _startDate <
+            block.timestamp + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME
+        ) {
+            revert NewVotingHasToBeScheduled10DaysAhead();
+        }
+        _;
+    }
+
+    modifier newVotingScheduledMaximum30daysAhead(uint _startDate) {
+        if (_startDate > block.timestamp + VOTING_CYCLE_INTERVAL) {
+            revert NewVotingHasToBeScheduledLessThan30daysAhead();
+        }
+        _;
+    }
+
+    modifier votingContentQuizIpfsAssigned(bytes32 _votingKey) {
+        if (isEmptyString(votings[_votingKey].votingContentCheckQuizIpfsHash)) {
+            revert VotingContentCheckQuizNotAssigned();
+        }
+        _;
+    }
+
+    modifier creatorOfVotingRespondedOnArticles(bytes32 _votingKey) {
+        bool isRespondedAllTheCritics = true;
+        uint articleKeysLength = articleKeys.length;
+
+        for (uint i = 0; i < articleKeysLength; i++) {
+            if (proConArticles[_votingKey][articleKeys[i]].isArticleApproved) {
+                if (
+                    !proConArticles[_votingKey][articleKeys[i]]
+                        .isResponseApproved
+                ) {
+                    isRespondedAllTheCritics = false;
+                    break;
+                }
+            }
+        }
+        if (!isRespondedAllTheCritics) {
+            revert VotingOwnerNotRespondedOnAllArticles();
         }
         _;
     }
@@ -267,6 +374,16 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
+    modifier hasCreditsLeftToPublishArticle(bytes32 _votingKey) {
+        if (
+            publishArticleToVotingsCount[msg.sender][_votingKey] >=
+            politicalActorVotingCredits[msg.sender]
+        ) {
+            revert NoMorePublishArticleCreditsRelatedToThisVoting();
+        }
+        _;
+    }
+
     // CONTRACT LOGIC *****************************************************************
 
     constructor(address priceFeed) BVS_Roles() {
@@ -330,13 +447,11 @@ contract BVS_Voting is BVS_Roles {
 
     function setFirstVotingCycleStartDate(
         uint _firstVotingCycleStartDate
-    ) public onlyRole(ADMINISTRATOR) {
-        require(
-            _firstVotingCycleStartDate > block.timestamp,
-            "Voting cycle start date has to be in the future"
-        );
-        firstVotingCycleStartDate = _firstVotingCycleStartDate;
-
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        firstVotingCycleStartDateIsInTheFuture(_firstVotingCycleStartDate)
+    {
         // reset votingCycleStartVoteCount;
         for (uint i = 0; i < votingCycleIndexes.length; i++) {
             for (uint u = 0; u < politicalActors.length; u++) {
@@ -347,27 +462,21 @@ contract BVS_Voting is BVS_Roles {
         }
 
         votingCycleIndexes = new uint[](0);
+
+        firstVotingCycleStartDate = _firstVotingCycleStartDate;
     }
 
     function scheduleNewVoting(
         string calldata _contentIpfsHash,
         uint _startDate,
         uint _budget
-    ) public onlyRole(POLITICAL_ACTOR) {
-        require(
-            firstVotingCycleStartDate < block.timestamp &&
-                firstVotingCycleStartDate != 0,
-            "Start new voting period is not yet active"
-        );
-        require(
-            _startDate >
-                block.timestamp + NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME,
-            "New voting has to be scheduled 10 days later from now"
-        );
-        require(
-            _startDate < block.timestamp + VOTING_CYCLE_INTERVAL,
-            "New voting start date can only be scheduled within 30 days ahead"
-        );
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        votingPeriodIsActive
+        newVotingScheduledAtLeast10daysAhead(_startDate)
+        newVotingScheduledMaximum30daysAhead(_startDate)
+    {
         uint timePassed = block.timestamp - firstVotingCycleStartDate;
         uint votingCycleCount = uint(timePassed / VOTING_CYCLE_INTERVAL);
 
@@ -419,21 +528,20 @@ contract BVS_Voting is BVS_Roles {
     function assignQuizIpfsHashToVoting(
         bytes32 _votingKey,
         string memory _quizIpfsHash
-    ) public onlyRole(ADMINISTRATOR) {
-        require(votings[_votingKey].creator != address(0), "Voting not exists");
+    ) public onlyRole(ADMINISTRATOR) votingExists(_votingKey) {
         votings[_votingKey].votingContentCheckQuizIpfsHash = _quizIpfsHash;
     }
 
-    function addKeccak256HashedAnswerToVotingContent(
+    function addKeccak256HashedAnswersToVotingContent(
         bytes32 _votingKey,
-        bytes32 _keccak256HashedAnswer
-    ) public onlyRole(ADMINISTRATOR) {
-        require(
-            !isEmptyString(votings[_votingKey].votingContentCheckQuizIpfsHash),
-            "No voting content check quiz ipfs assigned yet"
-        );
-
-        votingContentReadCheckAnswers[_votingKey].push(_keccak256HashedAnswer);
+        bytes32[] memory _keccak256HashedAnswers
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        votingContentQuizIpfsAssigned(_votingKey)
+        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
+    {
+        votingContentReadCheckAnswers[_votingKey] = _keccak256HashedAnswers;
     }
 
     function approveVoting(
@@ -446,26 +554,8 @@ contract BVS_Voting is BVS_Roles {
         enoughContentReadQuizAnswerAdded(
             votingContentReadCheckAnswers[_votingKey]
         )
+        creatorOfVotingRespondedOnArticles(_votingKey)
     {
-        // make sure the creator of the voting responded for all the ciritcal articles
-        bool isRespondedAllTheCritics = true;
-        uint articleKeysLength = articleKeys.length;
-
-        for (uint i = 0; i < articleKeysLength; i++) {
-            if (proConArticles[_votingKey][articleKeys[i]].isArticleApproved) {
-                if (
-                    !proConArticles[_votingKey][articleKeys[i]]
-                        .isResponseApproved
-                ) {
-                    isRespondedAllTheCritics = false;
-                    break;
-                }
-            }
-        }
-        require(
-            isRespondedAllTheCritics,
-            "Creator of the voting not yet responded on all the critics"
-        );
         votings[_votingKey].approved = true;
     }
 
@@ -473,13 +563,11 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _votingKey,
         string memory _ipfsHash,
         bool _isVoteOnA
-    ) public onlyRole(POLITICAL_ACTOR) {
-        require(
-            publishArticleToVotingsCount[msg.sender][_votingKey] <
-                politicalActorVotingCredits[msg.sender],
-            "You don't have more credit (related to this voting) to publish"
-        );
-
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        hasCreditsLeftToPublishArticle(_votingKey)
+    {
         bytes32 articleKey = keccak256(
             abi.encodePacked(
                 Strings.toString(block.timestamp),
@@ -593,10 +681,6 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _articleKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
-        require(
-            !isBytes32ArrayContains(articlesCompleted[msg.sender], _articleKey),
-            "You already completed this article quiz"
-        );
         uint[] memory answerIndexes = getAccountArticleQuizAnswerIndexes(
             _votingKey,
             _articleKey,
@@ -618,13 +702,6 @@ contract BVS_Voting is BVS_Roles {
         bytes32 _articleKey,
         string[] memory _answers
     ) public onlyRole(CITIZEN) {
-        require(
-            !isBytes32ArrayContains(
-                articlesResponseCompleted[msg.sender],
-                _articleKey
-            ),
-            "You already completed this article response quiz"
-        );
         uint[]
             memory answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
                 _votingKey,
@@ -645,29 +722,14 @@ contract BVS_Voting is BVS_Roles {
     function voteOnVoting(
         bytes32 _votingKey,
         bool _voteOnA
-    ) public onlyRole(CITIZEN) {
-        // check if the actual voting is active / exists
-        require(
-            votings[_votingKey].startDate < block.timestamp &&
-                votings[_votingKey].startDate + VOTING_DURATION >
-                block.timestamp,
-            "Voting is not yet started or it is already finished"
-        );
-        require(
-            votings[_votingKey].approved,
-            "Voting is not approved for some reason"
-        );
-        // check if voting content check quiz completed
-        require(
-            votes[msg.sender][_votingKey].isContentCompleted,
-            "Content check quiz not completed"
-        );
-        // check if citizen already voted
-        require(
-            !votes[msg.sender][_votingKey].voted,
-            "You already voted on this voting"
-        );
-
+    )
+        public
+        onlyRole(CITIZEN)
+        votingIsOngoing(_votingKey)
+        votingApproved(_votingKey)
+        contentCheckQuizCompleted(_votingKey)
+        notVotedYetOnThisVoting(_votingKey)
+    {
         // calculate vote score
 
         uint voteScore = MIN_VOTE_SCORE;
@@ -878,18 +940,6 @@ contract BVS_Voting is BVS_Roles {
 
     function getVotinCycleIndexesSize() public view returns (uint) {
         return votingCycleIndexes.length;
-    }
-
-    function isBytes32ArrayContains(
-        bytes32[] memory _array,
-        bytes32 _item
-    ) public pure returns (bool) {
-        for (uint i = 0; i < _array.length; i++) {
-            if (_array[i] == _item) {
-                return true;
-            }
-        }
-        return false;
     }
 
     function isEmptyString(string memory _string) public pure returns (bool) {

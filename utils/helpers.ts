@@ -112,10 +112,8 @@ export const citizensVoteOnElectionsCandidate = async (candidate: SignerWithAddr
 
 // voting
 
-export const assignAnswersToVoting = async (contract: BVS_Voting, votingKey: string, cycleCount = 1, hashedAnswers = mockHashedAnwers) => {
-    for (let i = 0; i < cycleCount; i++) {
-        await contract.addKeccak256HashedAnswerToVotingContent(votingKey, hashedAnswers[i])
-    }
+export const assignAnswersToVoting = async (contract: BVS_Voting, votingKey: string, hashedAnswers = mockHashedAnwers) => {
+    await contract.addKeccak256HashedAnswersToVotingContent(votingKey, hashedAnswers)
 }
 
 export const assignAnswersToArticle = async (contract: BVS_Voting, votingKey: string, articleKey: string, hashedAnswers = mockHashedAnwers) => {
@@ -147,7 +145,7 @@ export const addQuizAndContentCheckAnswersToVoting = async (admin: BVS_Voting) =
 
     await admin.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
 
-    await assignAnswersToVoting(admin, votingKey, 10)
+    await assignAnswersToVoting(admin, votingKey)
 }
 
 export const addArticleToVotingWithQuizAndAnswers = async (admin: BVS_Voting, criticalPoliticalActorAccount: SignerWithAddress, isVoteOnA: boolean) => {
