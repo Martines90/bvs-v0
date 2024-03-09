@@ -121,6 +121,12 @@ contract BVS_Voting is BVS_Roles {
 
     error NoEnoughContentReadQuizAnswerAdded();
 
+    error VotingNotBelongsToSender();
+    error VotingDidNotWon();
+    error VotingNotFinished();
+    error VotingNotApproved();
+    error NoEnoughVotesReceived();
+
     modifier criticisedArticleRelatedToYourVoting(
         bytes32 _votingKey,
         bytes32 _proConArticleKey
@@ -145,6 +151,44 @@ contract BVS_Voting is BVS_Roles {
     modifier votingNotYetStarted(bytes32 _votingKey) {
         if (votings[_votingKey].startDate < block.timestamp) {
             revert VotingAlreadyStarted();
+        }
+        _;
+    }
+
+    modifier votingWon(bytes32 _votingKey) {
+        if (!isVotingWon(_votingKey, true)) {
+            revert VotingDidNotWon();
+        }
+        _;
+    }
+
+    modifier votingBelongsToSender(bytes32 _votingKey) {
+        if (getVoting(_votingKey).creator != msg.sender) {
+            revert VotingNotBelongsToSender();
+        }
+        _;
+    }
+
+    modifier votingNotFinished(bytes32 _votingKey) {
+        if (votings[_votingKey].startDate + VOTING_DURATION > block.timestamp) {
+            revert VotingNotFinished();
+        }
+        _;
+    }
+
+    modifier votingApproved(bytes32 _votingKey) {
+        if (!votings[_votingKey].approved) {
+            revert VotingNotApproved();
+        }
+        _;
+    }
+
+    modifier enoughVotesArrived(bytes32 _votingKey) {
+        if (
+            (votings[_votingKey].voteCount * 100) / citizens.length <
+            MIN_PERCENTAGE_OF_VOTES
+        ) {
+            revert NoEnoughVotesReceived();
         }
         _;
     }
@@ -251,16 +295,12 @@ contract BVS_Voting is BVS_Roles {
 
     function unlockVotingBudget(
         bytes32 _votingKey
-    ) public onlyRole(POLITICAL_ACTOR) {
-        require(
-            isVotingWon(_votingKey, true),
-            "Voting did not received the majority of support"
-        );
-        require(
-            getVoting(_votingKey).creator == msg.sender,
-            "This is not your voting"
-        );
-
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        votingBelongsToSender(_votingKey)
+        votingWon(_votingKey)
+    {
         (bool callSuccess, ) = payable(msg.sender).call{
             value: getVoting(_votingKey).budget
         }("");
@@ -805,20 +845,17 @@ contract BVS_Voting is BVS_Roles {
     function isVotingWon(
         bytes32 _votingKey,
         bool _isAWinExpected
-    ) public view returns (bool) {
-        require(
-            votings[_votingKey].startDate + VOTING_DURATION < block.timestamp,
-            "Voting is not yet started or it is already ongoing"
-        );
-        require(votings[_votingKey].approved, "Voting not approved");
-        require(
-            (votings[_votingKey].voteCount * 100) / citizens.length >
-                MIN_PERCENTAGE_OF_VOTES,
-            "No enough vote received"
-        );
+    )
+        public
+        view
+        votingNotFinished(_votingKey)
+        votingApproved(_votingKey)
+        enoughVotesArrived(_votingKey)
+        returns (bool)
+    {
         if (_isAWinExpected) {
             return
-                votings[_votingKey].voteOnAScore >
+                votings[_votingKey].voteOnAScore >=
                 votings[_votingKey].voteOnBScore;
         } else {
             return

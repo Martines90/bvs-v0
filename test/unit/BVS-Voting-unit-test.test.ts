@@ -59,7 +59,10 @@ describe("BVS_Voting", () => {
         const votingTargetBudget = sendValuesInEth.medium / BigInt(2);
         let politicalActor: BVS_Voting;
         let votingKey: string
-        let articleKey: string
+
+        let voter1: BVS_Voting;
+        let voter2: BVS_Voting;
+        let voter3: BVS_Voting;
 
         beforeEach(async () => {
             admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
@@ -83,28 +86,38 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION - TimeQuantities.DAY);
 
-            const account = await admin.connect(accounts[2]);
-            const account2 = await admin.connect(accounts[3]);
-            const account3 = await admin.connect(accounts[4]);
+            voter1 = await admin.connect(accounts[2]);
+            voter2 = await admin.connect(accounts[3]);
+            voter3 = await admin.connect(accounts[4]);
 
             await completeVoting(admin, accounts[2]);
             await completeVoting(admin, accounts[3]);
             await completeVoting(admin, accounts[4]);
-
-            await account.voteOnVoting(votingKey, true);
-            await account2.voteOnVoting(votingKey, false);
-            await account3.voteOnVoting(votingKey, false);
         })
         it("should forbid to unlock voting budget money for non POLITICAL_ACTOR account", async () => {
             const citizen1 = await admin.connect(accounts[3]);
             await expect(citizen1.unlockVotingBudget(votingKey)).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[3].address, Roles.POLITICAL_ACTOR));;
         })
 
-        it("should forbid to unlock voting budget money when voting did not win", async () => {
+        it("should forbid to unlock voting budget money when voting did not get enough votes", async () => {
+            await voter1.voteOnVoting(votingKey, true);
+
             await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
-            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
-                "Voting did not received the majority of support"
+            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWithCustomError(bvsVoting,
+                "NoEnoughVotesReceived"
+            );;
+        })
+
+        it("should forbid to unlock voting budget money when voting did not win", async () => {
+            await voter1.voteOnVoting(votingKey, true);
+            await voter2.voteOnVoting(votingKey, false);
+            await voter3.voteOnVoting(votingKey, false);
+
+            await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
+
+            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWithCustomError(bvsVoting,
+                "VotingDidNotWon"
             );;
         })
 
