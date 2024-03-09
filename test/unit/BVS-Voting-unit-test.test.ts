@@ -177,7 +177,7 @@ describe("BVS_Voting", () => {
             assert.equal(endingBVS_FundingBalance, startingBVS_FundingBalance - votingTargetBudget);
             assert.equal(
                 (votingTargetBudget + startingPoliticalActorBalance).toString(),
-                (endingPoliticalActorBalance + gasCost).toString()
+                (endingPoliticalActorBalance + BigInt(gasCost)).toString()
               );
 
             assert.equal((await admin.votings(votingKey)).budget, BigInt(0));

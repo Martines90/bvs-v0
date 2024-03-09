@@ -719,22 +719,13 @@ contract BVS_Voting is BVS_Roles {
         articlesResponseCompleted[msg.sender].push(_articleKey);
     }
 
-    function voteOnVoting(
+    function calculateVoteScore(
         bytes32 _votingKey,
-        bool _voteOnA
-    )
-        public
-        onlyRole(CITIZEN)
-        votingIsOngoing(_votingKey)
-        votingApproved(_votingKey)
-        contentCheckQuizCompleted(_votingKey)
-        notVotedYetOnThisVoting(_votingKey)
-    {
-        // calculate vote score
-
+        address _account
+    ) public view returns (uint) {
         uint voteScore = MIN_VOTE_SCORE;
 
-        uint completedArticlesLength = articlesCompleted[msg.sender].length;
+        uint completedArticlesLength = articlesCompleted[_account].length;
 
         uint numOfVoteOnACompletedArticleValue = 0;
         uint numOfVoteOnBCompletedArticleValue = 0;
@@ -745,7 +736,7 @@ contract BVS_Voting is BVS_Roles {
         for (uint i = 0; i < completedArticlesLength; i++) {
             ProConArticle memory completedProConArticle = proConArticles[
                 _votingKey
-            ][articlesCompleted[msg.sender][i]];
+            ][articlesCompleted[_account][i]];
             if (completedProConArticle.votingKey == _votingKey) {
                 if (completedProConArticle.isVoteOnA) {
                     numOfVoteOnACompletedArticleValue += 1;
@@ -756,13 +747,13 @@ contract BVS_Voting is BVS_Roles {
         }
 
         uint completedArticlesResponseLength = articlesResponseCompleted[
-            msg.sender
+            _account
         ].length;
         for (uint u = 0; u < completedArticlesResponseLength; u++) {
             ProConArticle
                 memory completedProConArticleWithResponse = proConArticles[
                     _votingKey
-                ][articlesResponseCompleted[msg.sender][u]];
+                ][articlesResponseCompleted[_account][u]];
             if (completedProConArticleWithResponse.votingKey == _votingKey) {
                 if (completedProConArticleWithResponse.isVoteOnA) {
                     numOfVoteOnACompletedResponseValue += 1;
@@ -778,6 +769,22 @@ contract BVS_Voting is BVS_Roles {
             numOfVoteOnACompletedResponseValue,
             numOfVoteOnBCompletedResponseValue
         );
+        return voteScore;
+    }
+
+    function voteOnVoting(
+        bytes32 _votingKey,
+        bool _voteOnA
+    )
+        public
+        onlyRole(CITIZEN)
+        votingIsOngoing(_votingKey)
+        votingApproved(_votingKey)
+        contentCheckQuizCompleted(_votingKey)
+        notVotedYetOnThisVoting(_votingKey)
+    {
+        // calculate vote score
+        uint voteScore = calculateVoteScore(_votingKey, msg.sender);
 
         // add new vote
         if (_voteOnA) {

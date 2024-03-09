@@ -1,8 +1,8 @@
 import { ethers } from "hardhat"
 import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
-import { BVS_Elections, BVS_Voting } from "../typechain-types"
 import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { BVS_Elections, BVS_Voting } from "../typechain-types";
 
 const bytes32 = require('bytes32');
 
@@ -187,7 +187,7 @@ export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWith
 
     const indexes = await admin.getAccountVotingQuizAnswerIndexes(votingKey, voterAccount.address)
 
-    const answers = indexes.map((item) => `hashed-answer-${item}`);
+    const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
         await admin.grantCitizenRole(voterAccount)
@@ -206,7 +206,7 @@ export const completeArticle = async (admin: BVS_Voting, voterAccount: SignerWit
 
     const indexes = await admin.getAccountArticleQuizAnswerIndexes(votingKey, articleKey, voterAccount.address)
 
-    const answers = indexes.map((item) => `hashed-answer-${item}`);
+    const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
         await admin.grantCitizenRole(voterAccount)
@@ -226,7 +226,7 @@ export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: S
 
     const indexes = await admin.getAccountArticleResponseQuizAnswerIndexes(votingKey, articleKey, voterAccount.address)
 
-    const answers = indexes.map((item) => `hashed-answer-${item}`);
+    const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
         await admin.grantCitizenRole(voterAccount)
