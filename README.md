@@ -25,10 +25,10 @@ Here's a closer look at how BVS functions under the hood:
 
 2. **Weight Calculation**: The weight of a voter's ballot is calculated based on their engagement, specifically their interaction with supportive and opposing content. Using the provided formula, we translate and apply it as follows:
 
-   - \(sa\) = number of supportive articles read
-   - \(oa\) = number of opposing articles read
-   - \(sc\) = comments made on supportive articles read
-   - \(oc\) = comments made on opposing articles read
+   - $\(sa\)$ = number of supportive articles read
+   - $\(oa\)$ = number of opposing articles read
+   - $\(sc\)$ = comments made on supportive articles read
+   - $\(oc\)$ = comments made on opposing articles read
 
    The **Voting Score** is calculated with the formula: 
    
@@ -46,7 +46,7 @@ This formula-driven approach ensures that the influence of a vote directly corre
 
 The technical backbone of the Balanced Voting System (BVS) is underpinned by **blockchain technology**, particularly through the use of **smart contracts**. This innovative approach ensures that BVS can be implemented and applied across any community, regardless of scale, with unparalleled security, transparency, and efficiency.
 
-Blockchain technology offers a **decentralized and immutable ledge**r**, which is ideal for recording votes in a way that is both transparent and resistant to tampering. Each vote cast within the BVS is recorded as a transaction on the blockchain, ensuring that once a vote is registered, it cannot be altered or deleted. This immutable record-keeping is crucial for maintaining the integrity of the voting process and ensuring trust among participants.
+Blockchain technology offers a **decentralized and immutable ledger**, which is ideal for recording votes in a way that is both transparent and resistant to tampering. Each vote cast within the BVS is recorded as a transaction on the blockchain, ensuring that once a vote is registered, it cannot be altered or deleted. This immutable record-keeping is crucial for maintaining the integrity of the voting process and ensuring trust among participants.
 
 Smart contracts automate the enforcement of the rules set out by BVS, including the calculation of vote weights and the tallying of final results. These self-executing contracts with the terms of the agreement directly written into lines of code are stored on the blockchain and automatically execute when predetermined conditions are met. This automation not only minimizes the potential for human error but also significantly reduces the need for intermediaries, making the voting process more efficient and cost-effective.
 
@@ -54,8 +54,9 @@ Furthermore, the use of blockchain technology enables the BVS to be scalable and
 
 In essence, the integration of blockchain and smart contracts provides the perfect infrastructure for the BVS, guaranteeing security, transparency, and reliability. This technology ensures that the BVS can be a viable and trustworthy model for communities seeking to innovate their democratic processes and engage citizens in a more meaningful and informed manner.
 
+## Technical info
 
-# Techical info:
+
 
 ### Tech stack:
 
