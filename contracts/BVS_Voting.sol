@@ -390,7 +390,7 @@ contract BVS_Voting is BVS_Roles {
         bvsHelpers = new BVS_Helpers();
         bvsElections = new BVS_Elections();
         bvsElections.sendGrantAdministratorRoleApproval(msg.sender);
-        bvsElections.grantCitizenRole(msg.sender);
+        bvsElections.grantCitizenRole(msg.sender, false);
         bvsFuding = new BVS_Funding(priceFeed);
     }
 
@@ -401,8 +401,8 @@ contract BVS_Voting is BVS_Roles {
     function _grantCitizenRole(
         address _account
     ) public onlyRole(ADMINISTRATOR) {
-        grantCitizenRole(_account);
-        bvsElections.grantCitizenRole(_account);
+        grantCitizenRole(_account, false);
+        bvsElections.grantCitizenRole(_account, false);
     }
 
     function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {

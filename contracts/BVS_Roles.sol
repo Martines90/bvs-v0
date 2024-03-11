@@ -33,7 +33,8 @@ contract BVS_Roles is Permissions {
     mapping(address => address[]) public adminApprovalSentToAccount;
     mapping(address => uint) public adminRoleGrantApprovals;
 
-    mapping(address => mapping(uint => uint)) public dailyCitizenApprovalCount;
+    mapping(address => mapping(uint => uint))
+        public dailyCitizenRoleModifyCredit;
 
     // Events
     event adminRoleRevoked(address account);
@@ -58,7 +59,7 @@ contract BVS_Roles is Permissions {
             : 1;
 
         if (
-            dailyCitizenApprovalCount[msg.sender][daysPassed] >=
+            dailyCitizenRoleModifyCredit[msg.sender][daysPassed] >=
             maxCitizensCanBeAddPerAdmin
         ) revert RunOutOfDailyCitizenRoleGrantCredit();
         _;
@@ -153,7 +154,8 @@ contract BVS_Roles is Permissions {
     }
 
     function grantCitizenRole(
-        address _account
+        address _account,
+        bool _revokeCitizenRole
     )
         public
         onlyRole(ADMINISTRATOR)
@@ -161,9 +163,12 @@ contract BVS_Roles is Permissions {
         hasCitizenRoleGrantCredit
     {
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
-
-        dailyCitizenApprovalCount[msg.sender][daysPassed]++;
-        _setupRole(CITIZEN, _account);
+        if (!_revokeCitizenRole) {
+            dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
+            _setupRole(CITIZEN, _account);
+        } else {
+            _revokeRole(CITIZEN, _account);
+        }
         citizens.push(_account);
     }
 
