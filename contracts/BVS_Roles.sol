@@ -110,7 +110,7 @@ contract BVS_Roles is Permissions {
         }
     }
 
-    function _revokeAdminRoleApproval(
+    function i_RevokeAdminRoleApproval(
         address admin,
         address revokedAccount
     ) internal {
@@ -135,7 +135,7 @@ contract BVS_Roles is Permissions {
                         k < adminApprovalSentToAccount[revokedAccount].length;
                         k++
                     ) {
-                        _revokeAdminRoleApproval(
+                        i_RevokeAdminRoleApproval(
                             revokedAccount,
                             adminApprovalSentToAccount[revokedAccount][i]
                         );
@@ -150,7 +150,7 @@ contract BVS_Roles is Permissions {
     function revokeAdminRoleApproval(
         address _account
     ) public onlyRole(ADMINISTRATOR) {
-        _revokeAdminRoleApproval(msg.sender, _account);
+        i_RevokeAdminRoleApproval(msg.sender, _account);
     }
 
     function grantCitizenRole(

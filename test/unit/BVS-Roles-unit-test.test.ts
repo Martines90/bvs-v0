@@ -109,7 +109,7 @@ describe("BVS_Roles", () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[1]);
 
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2])
+                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
@@ -117,7 +117,7 @@ describe("BVS_Roles", () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2])
+                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(2));
@@ -126,28 +126,28 @@ describe("BVS_Roles", () => {
         it("should revert when account already registered", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2])
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], false)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
         });
 
         it("should revert when account ran out of grant citizen role credits for the day", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2])
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[3])).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[3], false)).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
         });
 
         it("should grant citizen role again when one day passes", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2])
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
 
             await time.increaseTo(NOW + TimeQuantities.DAY)
 
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[3])
+                bvsRolesAccount1.grantCitizenRole(accounts[3], false)
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(3));
