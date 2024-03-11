@@ -113,17 +113,7 @@ describe("BVS_Roles", () => {
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
-        it("should grant citizen role", async () => {
-            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
-
-            await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
-            ).not.to.be.reverted
-
-            assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(2));
-        });
-
-        it("should revert when account already registered", async () => {
+        it("should revert when citizen role already granted", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
             await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
@@ -139,6 +129,16 @@ describe("BVS_Roles", () => {
             await expect(bvsRolesAccount1.grantCitizenRole(accounts[3], false)).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
         });
 
+        it("should grant citizen role", async () => {
+            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
+
+            await expect(
+                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+            ).not.to.be.reverted
+
+            assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(2));
+        });
+
         it("should grant citizen role again when one day passes", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
@@ -151,6 +151,29 @@ describe("BVS_Roles", () => {
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(3));
+        });
+
+        it("should revert when citizen role already revoked", async () => {
+            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
+
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], true)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyRevokedOrNotGranted');
+        });
+
+        it("should revoke citizen role", async () => {
+            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
+
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+
+            assert.equal((await bvsRolesAccount1.hasRole(Roles.CITIZEN, accounts[2])), true);
+
+            await time.increaseTo(NOW + TimeQuantities.DAY)
+
+            await expect(
+                bvsRolesAccount1.grantCitizenRole(accounts[2], true)
+            ).not.to.be.reverted
+
+            assert.equal((await bvsRolesAccount1.hasRole(Roles.CITIZEN, accounts[2])), false);
+            assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(2));
         });
     })
 })

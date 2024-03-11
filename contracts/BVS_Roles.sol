@@ -41,11 +41,15 @@ contract BVS_Roles is Permissions {
 
     // Errors
     error CitizenRoleAlreadyGranted();
+    error CitizenRoleAlreadyRevokedOrNotGranted();
     error RunOutOfDailyCitizenRoleGrantCredit();
     error AdminRoleGrantApprovalAlreadySent();
 
-    modifier hasNoCitizenRole(address _account) {
-        if (hasRole(CITIZEN, _account)) revert CitizenRoleAlreadyGranted();
+    modifier hasRoleToModify(address _account, bool isRevoke) {
+        if (!isRevoke && hasRole(CITIZEN, _account))
+            revert CitizenRoleAlreadyGranted();
+        if (isRevoke && !hasRole(CITIZEN, _account))
+            revert CitizenRoleAlreadyRevokedOrNotGranted();
         _;
     }
 
@@ -159,17 +163,23 @@ contract BVS_Roles is Permissions {
     )
         public
         onlyRole(ADMINISTRATOR)
-        hasNoCitizenRole(_account)
+        hasRoleToModify(_account, _revokeCitizenRole)
         hasCitizenRoleGrantCredit
     {
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
+        dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
         if (!_revokeCitizenRole) {
-            dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
             _setupRole(CITIZEN, _account);
+            citizens.push(_account);
         } else {
             _revokeRole(CITIZEN, _account);
+            for (uint i; i < citizens.length; i++) {
+                if (citizens[i] == _account) {
+                    delete citizens[i];
+                    break;
+                }
+            }
         }
-        citizens.push(_account);
     }
 
     function checkIfAccounthasRole(
