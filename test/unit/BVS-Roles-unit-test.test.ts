@@ -4,7 +4,7 @@ import { BVS_Roles } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
-import { FAR_FUTURE_DATE, Roles, getPermissionDenyReasonMessage } from '../../utils/helpers';
+import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, getPermissionDenyReasonMessage } from '../../utils/helpers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -70,7 +70,9 @@ describe("BVS_Roles", () => {
 
             await bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[4])
 
-            await expect(bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[4])).to.be.revertedWith('You already sent your admin role grant approval to this account');
+            await expect(bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[4])).to.be.revertedWithCustomError(bvsRoles,
+                'AdminRoleGrantApprovalAlreadySent'
+            );
         });
 
         it("should not grant admin role when no enough admin role grant approval arrived", async () => {
@@ -111,7 +113,7 @@ describe("BVS_Roles", () => {
             ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
-        it("should not revert when account has ADMINISTRATOR role", async () => {
+        it("should grant citizen role", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
             await expect(
@@ -127,6 +129,28 @@ describe("BVS_Roles", () => {
             await bvsRolesAccount1.grantCitizenRole(accounts[2])
 
             await expect(bvsRolesAccount1.grantCitizenRole(accounts[2])).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
+        });
+
+        it("should revert when account ran out of grant citizen role credits for the day", async () => {
+            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
+
+            await bvsRolesAccount1.grantCitizenRole(accounts[2])
+
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[3])).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
+        });
+
+        it("should grant citizen role again when one day passes", async () => {
+            const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
+
+            await bvsRolesAccount1.grantCitizenRole(accounts[2])
+
+            await time.increaseTo(NOW + TimeQuantities.DAY)
+
+            await expect(
+                bvsRolesAccount1.grantCitizenRole(accounts[3])
+            ).not.to.be.reverted
+
+            assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(3));
         });
     })
 })

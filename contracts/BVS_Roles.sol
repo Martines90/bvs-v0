@@ -40,9 +40,44 @@ contract BVS_Roles is Permissions {
 
     // Errors
     error CitizenRoleAlreadyGranted();
+    error RunOutOfDailyCitizenRoleGrantCredit();
+    error AdminRoleGrantApprovalAlreadySent();
 
     modifier hasNoCitizenRole(address _account) {
         if (hasRole(CITIZEN, _account)) revert CitizenRoleAlreadyGranted();
+        _;
+    }
+
+    modifier hasCitizenRoleGrantCredit() {
+        uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
+
+        uint maxCitizensCanBeAddPerAdmin = (citizens.length /
+            MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE) / admins.length;
+        maxCitizensCanBeAddPerAdmin = maxCitizensCanBeAddPerAdmin > 0
+            ? maxCitizensCanBeAddPerAdmin
+            : 1;
+
+        if (
+            dailyCitizenApprovalCount[msg.sender][daysPassed] >=
+            maxCitizensCanBeAddPerAdmin
+        ) revert RunOutOfDailyCitizenRoleGrantCredit();
+        _;
+    }
+
+    modifier adminRoleGrantApprovalNotSent(address _account) {
+        bool adminRoleGrantApprovalAlreadySent = false;
+        for (
+            uint i = 0;
+            i < adminApprovalSentToAccount[msg.sender].length;
+            i++
+        ) {
+            if (adminApprovalSentToAccount[msg.sender][i] == _account) {
+                adminRoleGrantApprovalAlreadySent = true;
+            }
+        }
+
+        if (adminRoleGrantApprovalAlreadySent)
+            revert AdminRoleGrantApprovalAlreadySent();
         _;
     }
 
@@ -56,80 +91,78 @@ contract BVS_Roles is Permissions {
 
     function sendGrantAdministratorRoleApproval(
         address _account
-    ) public onlyRole(ADMINISTRATOR) {
-        bool adminRoleGrantApprovalAlreadySent = false;
-        for (
-            uint i = 0;
-            i < adminApprovalSentToAccount[msg.sender].length;
-            i++
-        ) {
-            if (adminApprovalSentToAccount[msg.sender][i] == _account) {
-                adminRoleGrantApprovalAlreadySent = true;
-            }
-        }
-        require(
-            !adminRoleGrantApprovalAlreadySent,
-            "You already sent your admin role grant approval to this account"
-        );
-
+    ) public onlyRole(ADMINISTRATOR) adminRoleGrantApprovalNotSent(_account) {
         adminApprovalSentToAccount[msg.sender].push(_account);
         adminRoleGrantApprovals[_account]++;
 
         if (
             (adminRoleGrantApprovals[_account] * 1000) / admins.length >=
-            MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10 &&
-            !hasRole(ADMINISTRATOR, _account)
+            MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
         ) {
+            // also new admin has to automatically send his approvals to the already existing admins
+            for (uint i = 0; i < admins.length; i++) {
+                adminApprovalSentToAccount[_account].push(admins[i]);
+                adminRoleGrantApprovals[admins[i]]++;
+            }
             _setupRole(ADMINISTRATOR, _account);
             admins.push(_account);
         }
     }
 
-    /* function revokeAdminRoleApproval(
-        address _account
-    ) public onlyRole(ADMINISTRATOR) {
-        for (
-            uint i = 0;
-            i < adminApprovalSentToAccount[msg.sender].length;
-            i++
-        ) {
-            if (adminApprovalSentToAccount[msg.sender][i] == _account) {
-                delete adminApprovalSentToAccount[msg.sender][i];
-                adminRoleGrantApprovals[_account]--;
+    function _revokeAdminRoleApproval(
+        address admin,
+        address revokedAccount
+    ) internal {
+        for (uint i = 0; i < adminApprovalSentToAccount[admin].length; i++) {
+            if (adminApprovalSentToAccount[admin][i] == revokedAccount) {
+                delete adminApprovalSentToAccount[admin][i];
+                adminRoleGrantApprovals[revokedAccount]--;
                 if (
-                    (adminRoleGrantApprovals[_account] * 1000) / admins.length <
+                    (adminRoleGrantApprovals[revokedAccount] * 1000) /
+                        admins.length <
                     MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
                 ) {
-                    _revokeRole(ADMINISTRATOR, _account);
+                    _revokeRole(ADMINISTRATOR, revokedAccount);
                     for (uint u = 0; u < admins.length; u++) {
-                        if (admins[u] == _account) {
+                        if (admins[u] == revokedAccount) {
                             delete admins[u];
                         }
                     }
-                    emit adminRoleRevoked(_account);
+                    // make sure all the other admins get revoked their approval receieved from this admin
+                    for (
+                        uint k = 0;
+                        k < adminApprovalSentToAccount[revokedAccount].length;
+                        k++
+                    ) {
+                        _revokeAdminRoleApproval(
+                            revokedAccount,
+                            adminApprovalSentToAccount[revokedAccount][i]
+                        );
+                    }
+                    emit adminRoleRevoked(revokedAccount);
+                    break;
                 }
             }
         }
-    }*/
+    }
+
+    function revokeAdminRoleApproval(
+        address _account
+    ) public onlyRole(ADMINISTRATOR) {
+        _revokeAdminRoleApproval(msg.sender, _account);
+    }
 
     function grantCitizenRole(
         address _account
-    ) public onlyRole(ADMINISTRATOR) hasNoCitizenRole(_account) {
-        /*  require(!hasRole(CITIZEN, _account), "Citizen role already granted");
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        hasNoCitizenRole(_account)
+        hasCitizenRoleGrantCredit
+    {
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
 
-        uint maxCitizensCanBeAddPerAdmin = (citizens.length /
-            MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE) / admins.length;
-        maxCitizensCanBeAddPerAdmin = maxCitizensCanBeAddPerAdmin > 0
-            ? maxCitizensCanBeAddPerAdmin
-            : 1;
-        require(
-            dailyCitizenApprovalCount[msg.sender][daysPassed] <
-                maxCitizensCanBeAddPerAdmin,
-            "You ran out of your daily grant citizen role credit"
-        );
-
-        dailyCitizenApprovalCount[msg.sender][daysPassed]++;*/
+        dailyCitizenApprovalCount[msg.sender][daysPassed]++;
         _setupRole(CITIZEN, _account);
         citizens.push(_account);
     }

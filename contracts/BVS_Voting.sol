@@ -410,6 +410,13 @@ contract BVS_Voting is BVS_Roles {
         bvsElections.sendGrantAdministratorRoleApproval(_account);
     }
 
+    function _revokeAdminRoleApproval(
+        address _account
+    ) public onlyRole(ADMINISTRATOR) {
+        revokeAdminRoleApproval(_account);
+        bvsElections.revokeAdminRoleApproval(_account);
+    }
+
     function unlockVotingBudget(
         bytes32 _votingKey
     )
