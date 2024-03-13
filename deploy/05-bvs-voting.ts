@@ -10,9 +10,9 @@ const bvsVoting = async function (hre: HardhatRuntimeEnvironment) {
     const chainId: number = network.config.chainId || 0;
 
 
-    let ethUsdPriceFeedAddress;
+   
     let waitBlockConfirmations = 6;
-    
+     /*let ethUsdPriceFeedAddress;
     if (developmentChains.includes(networkConfig[chainId].name)) {
         log("Use MockV3Aggregator")
         waitBlockConfirmations = 1;
@@ -24,25 +24,29 @@ const bvsVoting = async function (hre: HardhatRuntimeEnvironment) {
     }
 
     log('deploy in progress...')
-    log('price feed address:', ethUsdPriceFeedAddress)
+    log('price feed address:', ethUsdPriceFeedAddress)*/
 
 
     const bvsVoting = await deploy("BVS_Voting", {
       from: deployer,
-        args: [
-            ethUsdPriceFeedAddress,
-        ],
+        args: [],
         log: true,
-        waitConfirmations: waitBlockConfirmations,
+        waitConfirmations: 1,
     })
 
     log(`BVS_Voting deployed at ${bvsVoting.address}`)
-  if (
+    if (
+      !developmentChains.includes(network.name) &&
+      process.env.ETHERSCAN_API_KEY
+    ) {
+      await verify(bvsVoting.address, [])
+    }
+  /*if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
     await verify(bvsVoting.address, [ethUsdPriceFeedAddress])
-  }
+  }*/
 
 }
 

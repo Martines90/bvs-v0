@@ -34,6 +34,7 @@ export enum Roles {
     ADMINISTRATOR = '0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661',
     POLITICAL_ACTOR = '0x9f70d138cbbd87297896478196b4493d9dceaca01f5883ecbd7bee66d300348d',
     CITIZEN = '0x313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9',
+    VOTER = '0x15283fd96aa656c9df35ac2fcb112678a5f24f1ca97e591a97d1d16003dbfc9c'
 }
 
 export enum TimeQuantities {
@@ -84,15 +85,15 @@ export const getPermissionDenyReasonMessage = (accountAddress: string, roleKecca
 
 // Elections
 
-export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], admin: any, limit = accounts.length) => {
+export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], admin: BVS_Voting, limit = accounts.length) => {
     for (let i = 1; limit > i; i++) {
-        await admin.grantCitizenRole(accounts[i]);
+        grantCitizenRoleHelper(admin, accounts[i]);
     }
 }
 
 export const grantCitizenshipForAllAccount2 = async (accounts: SignerWithAddress[], admin: BVS_Voting, limit = accounts.length) => {
     for (let i = 1; limit > i; i++) {
-        await admin._grantCitizenRole(accounts[i]);
+        grantCitizenRoleHelper(admin, accounts[i]);
     }
 }
 
@@ -190,7 +191,7 @@ export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWith
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
-        await admin.grantCitizenRole(voterAccount)
+        grantCitizenRoleHelper(admin, voterAccount);
     }
 
     await voter.completeContentReadQuiz(1, votingKey, bytes32(""), answers);
@@ -209,7 +210,7 @@ export const completeArticle = async (admin: BVS_Voting, voterAccount: SignerWit
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
-        await admin.grantCitizenRole(voterAccount)
+        grantCitizenRoleHelper(admin, voterAccount);
     }
 
     await voter.completeContentReadQuiz(2, votingKey, articleKey, answers);
@@ -229,7 +230,7 @@ export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: S
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
-        await admin.grantCitizenRole(voterAccount)
+        grantCitizenRoleHelper(admin, voterAccount);
     }
 
     await voter.completeContentReadQuiz(3, votingKey, articleKey, answers);
@@ -276,4 +277,9 @@ export const electCandidates = async (admin: BVS_Elections, candidates: SignerWi
 
     await admin.closeElections()
 
+}
+
+export const grantCitizenRoleHelper = async (admin: BVS_Voting, account: SignerWithAddress) => {
+    const bvsVotingAccount1 = await admin.connect(account);
+    await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
 }

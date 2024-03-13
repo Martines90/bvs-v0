@@ -61,6 +61,14 @@ contract BVS_Elections is BVS_Roles {
 
     constructor() BVS_Roles() {}
 
+    function registerVoters(
+        address[] memory _accounts
+    ) public onlyRole(ADMINISTRATOR) {
+        for (uint i = 0; i < _accounts.length; i++) {
+            grantVoterRole(_accounts[i]);
+        }
+    }
+
     function scheduleNextElections(
         uint256 _preElectionsStartDate,
         uint256 _preElectionsEndDate,
@@ -175,7 +183,7 @@ contract BVS_Elections is BVS_Roles {
         electionsStartDate = 0;
     }
 
-    function registerAsPreElectionCandidate() public payable onlyRole(CITIZEN) {
+    function registerAsPreElectionCandidate() public payable onlyRole(VOTER) {
         require(
             preElectionsStartDate > 0,
             "Pre elections not scheduled or already closed"
@@ -193,9 +201,7 @@ contract BVS_Elections is BVS_Roles {
         preElectionCandidateScores[msg.sender] = 1;
     }
 
-    function voteOnPreElections(
-        address voteOnAddress
-    ) public onlyRole(CITIZEN) {
+    function voteOnPreElections(address voteOnAddress) public onlyRole(VOTER) {
         PreElectionVoter memory preElectionVoter = preElectionVotes[msg.sender];
         require(
             block.timestamp > preElectionsStartDate &&
@@ -246,7 +252,7 @@ contract BVS_Elections is BVS_Roles {
         preElectionCandidateScores[voteOnAddress]++;
     }
 
-    function voteOnElections(address voteOnAddress) public onlyRole(CITIZEN) {
+    function voteOnElections(address voteOnAddress) public onlyRole(VOTER) {
         require(
             0 == preElectionsStartDate,
             "Pre elections not yet closed or scheduled"

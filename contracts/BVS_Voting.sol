@@ -34,7 +34,10 @@ contract BVS_Voting is BVS_Roles {
     uint public constant MIN_VOTE_SCORE = 5;
     uint public constant MIN_PERCENTAGE_OF_VOTES = 10;
 
+    // globals
+
     uint public firstVotingCycleStartDate;
+    uint public citizenRoleApplicationFee = 10000;
 
     // DATA OBJECTS
 
@@ -104,7 +107,11 @@ contract BVS_Voting is BVS_Roles {
     BVS_Helpers public immutable bvsHelpers;
 
     BVS_Elections public immutable bvsElections;
-    BVS_Funding public immutable bvsFuding;
+
+    // EVENTS
+
+    event AccountAppliedForCitizenship(address account);
+    event CitizenshipRoleGranted(address to, address from);
 
     // ERRORS **************************************************************
 
@@ -386,16 +393,28 @@ contract BVS_Voting is BVS_Roles {
 
     // CONTRACT LOGIC *****************************************************************
 
-    constructor(address priceFeed) BVS_Roles() {
+    constructor() BVS_Roles() {
         bvsHelpers = new BVS_Helpers();
         bvsElections = new BVS_Elections();
         bvsElections.sendGrantAdministratorRoleApproval(msg.sender);
-        bvsElections.grantCitizenRole(msg.sender, false);
-        bvsFuding = new BVS_Funding(priceFeed);
     }
 
-    function fund(string memory email) public payable {
-        bvsFuding.addFunder(msg.value, email);
+    function updateCitizenshipRoleApplicationFee(
+        uint value
+    ) public onlyRole(ADMINISTRATOR) {
+        citizenRoleApplicationFee = value;
+    }
+
+    function applyForCitizenshipRole(
+        string memory _emailAddress
+    ) public payable {
+        require(
+            msg.value > citizenRoleApplicationFee,
+            "Minimum application fee not covered"
+        );
+
+        citizenshipApplications[msg.sender] = _emailAddress;
+        emit AccountAppliedForCitizenship(msg.sender);
     }
 
     function _grantCitizenRole(
@@ -403,6 +422,7 @@ contract BVS_Voting is BVS_Roles {
     ) public onlyRole(ADMINISTRATOR) {
         grantCitizenRole(_account, false);
         bvsElections.grantCitizenRole(_account, false);
+        emit CitizenshipRoleGranted(_account, msg.sender);
     }
 
     function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {
@@ -949,9 +969,5 @@ contract BVS_Voting is BVS_Roles {
 
     function getVotinCycleIndexesSize() public view returns (uint) {
         return votingCycleIndexes.length;
-    }
-
-    function isEmptyString(string memory _string) public pure returns (bool) {
-        return keccak256(bytes(_string)) == keccak256(bytes(""));
     }
 }

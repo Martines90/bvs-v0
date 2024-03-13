@@ -22,6 +22,7 @@ contract BVS_Roles is Permissions {
     bytes32 public constant ADMINISTRATOR = keccak256("ADMINISTRATOR");
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
     bytes32 public constant CITIZEN = keccak256("CITIZEN");
+    bytes32 public constant VOTER = keccak256("VOTER");
 
     address[] public admins;
     address[] public politicalActors;
@@ -35,6 +36,8 @@ contract BVS_Roles is Permissions {
 
     mapping(address => mapping(uint => uint))
         public dailyCitizenRoleModifyCredit;
+
+    mapping(address => string) public citizenshipApplications;
 
     // Events
     event adminRoleRevoked(address account);
@@ -114,6 +117,10 @@ contract BVS_Roles is Permissions {
         }
     }
 
+    function grantVoterRole(address _account) public onlyRole(ADMINISTRATOR) {
+        _setupRole(VOTER, _account);
+    }
+
     function i_RevokeAdminRoleApproval(
         address admin,
         address revokedAccount
@@ -166,6 +173,10 @@ contract BVS_Roles is Permissions {
         hasRoleToModify(_account, _revokeCitizenRole)
         hasCitizenRoleGrantCredit
     {
+        require(
+            !isEmptyString(citizenshipApplications[_account]),
+            "This account not applied for citizenship role"
+        );
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
         dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
         if (!_revokeCitizenRole) {
@@ -199,5 +210,9 @@ contract BVS_Roles is Permissions {
 
     function getPoliticalActorsSize() public view returns (uint) {
         return politicalActors.length;
+    }
+
+    function isEmptyString(string memory _string) public pure returns (bool) {
+        return keccak256(bytes(_string)) == keccak256(bytes(""));
     }
 }
