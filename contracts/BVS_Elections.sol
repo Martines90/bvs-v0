@@ -24,6 +24,8 @@ contract BVS_Elections is BVS_Roles {
 
     uint256 constant MAXIMUM_NUMBER_OF_PRE_ELECTION_VOTES = 3;
 
+    uint public preElectionApplicationFee = 1000;
+
     uint256 public preElectionsStartDate;
     uint256 public preElectionsEndDate;
     uint256 public electionsStartDate;
@@ -59,7 +61,7 @@ contract BVS_Elections is BVS_Roles {
 
     Winner[] public winners;
 
-    constructor() BVS_Roles() {}
+    constructor() BVS_Roles(true) {}
 
     function registerVoters(
         address[] memory _accounts
@@ -77,7 +79,8 @@ contract BVS_Elections is BVS_Roles {
     ) public onlyRole(ADMINISTRATOR) {
         require(electionsStartDate == 0, "Previous elections has to be closed");
         require(
-            _preElectionsStartDate > block.timestamp + 30 days,
+            _preElectionsStartDate >
+                block.timestamp + ELECTION_START_END_INTERVAL,
             "Next election start date has to be at least 30 days planned ahead from now"
         );
 
@@ -183,7 +186,9 @@ contract BVS_Elections is BVS_Roles {
         electionsStartDate = 0;
     }
 
-    function registerAsPreElectionCandidate() public payable onlyRole(VOTER) {
+    function registerPreElectionCandidate(
+        address _account
+    ) public onlyRole(ADMINISTRATOR) {
         require(
             preElectionsStartDate > 0,
             "Pre elections not scheduled or already closed"
@@ -193,12 +198,12 @@ contract BVS_Elections is BVS_Roles {
             "Pre elections is already in progress"
         );
         require(
-            preElectionCandidateScores[msg.sender] == 0,
+            preElectionCandidateScores[_account] == 0,
             "You are already registered as a candidate"
         );
 
-        preElectionCandidates.push(msg.sender);
-        preElectionCandidateScores[msg.sender] = 1;
+        preElectionCandidates.push(_account);
+        preElectionCandidateScores[_account] = 1;
     }
 
     function voteOnPreElections(address voteOnAddress) public onlyRole(VOTER) {
@@ -272,6 +277,12 @@ contract BVS_Elections is BVS_Roles {
         electionVotes[msg.sender] = voteOnAddress;
         electionVoters.push(msg.sender);
         electionCandidateScores[voteOnAddress]++;
+    }
+
+    function _setPreElectionApplicationFree(
+        uint _newFee
+    ) public onlyRole(ADMINISTRATOR) {
+        preElectionApplicationFee = _newFee;
     }
 
     function getPoliticalActors() public view returns (address[] memory) {

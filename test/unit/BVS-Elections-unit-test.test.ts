@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { NOW, Roles, TimeQuantities, callScheduleNextElections, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, grantCitizenRoleHelper, grantCitizenshipForAllAccount, mockNextElectionsConfig } from '../../utils/helpers';
+import { NOW, Roles, TimeQuantities, callScheduleNextElections, citizensVoteOnElectionsCandidate, citizensVoteOnPreElectionsCandidate, getPermissionDenyReasonMessage, mockNextElectionsConfig } from '../../utils/helpers';
 
 import { deepEqual } from 'assert';
 
@@ -108,8 +108,6 @@ describe("BVS_Elections", () => {
 
     describe("closePreElections", () => {
         beforeEach(async () => {
-            await grantCitizenshipForAllAccount(accounts, bvsVotingAdmin, 20);
-
             await callScheduleNextElections(bvsElectionsAdmin);
         })
 
@@ -141,14 +139,9 @@ describe("BVS_Elections", () => {
         });
 
         it("should filter the candidates who got more than 20% voter support", async () => {
-            const winnerCandidate1 = await bvsElections.connect(accounts[1]);
-            await winnerCandidate1.registerAsPreElectionCandidate();
-
-            const winnerCandidate2 = await bvsElections.connect(accounts[2]);
-            await winnerCandidate2.registerAsPreElectionCandidate();
-
-            const loserCandidate = await bvsElections.connect(accounts[10]);
-            await loserCandidate.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[2]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[10]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -246,18 +239,18 @@ describe("BVS_Elections", () => {
         })
     });
 
-    describe('registerAsPreElectionCandidate', () => {
-        it('should revert when non voter calls', async () => {
+    describe('registerPreElectionCandidate', () => {
+        it('should revert when non ADMIN calls', async () => {
             const bvsElectionsAccount1 = await bvsElections.connect(accounts[23]);
 
             await expect(
-                bvsElectionsAccount1.registerAsPreElectionCandidate()
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.VOTER));
+                bvsElectionsAccount1.registerPreElectionCandidate(accounts[23])
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when there is no ongoing pre elections', async () => {
             await expect(
-                bvsElectionsAdmin.registerAsPreElectionCandidate()
+                bvsElectionsAdmin.registerPreElectionCandidate(accounts[1])
             ).to.be.revertedWith('Pre elections not scheduled or already closed');
         })
 
@@ -267,17 +260,17 @@ describe("BVS_Elections", () => {
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate);
 
             await expect(
-                bvsElectionsAdmin.registerAsPreElectionCandidate()
+                bvsElectionsAdmin.registerPreElectionCandidate(accounts[1])
             ).to.be.revertedWith('Pre elections is already in progress');
         })
 
         it('should revert when candidate already registered', async () => {
             await callScheduleNextElections(bvsElectionsAdmin);
 
-            await bvsElectionsAdmin.registerAsPreElectionCandidate()
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1])
 
             await expect(
-                bvsElectionsAdmin.registerAsPreElectionCandidate()
+                bvsElectionsAdmin.registerPreElectionCandidate(accounts[1])
             ).to.be.revertedWith('You are already registered as a candidate');
         })
 
@@ -285,11 +278,11 @@ describe("BVS_Elections", () => {
             await callScheduleNextElections(bvsElectionsAdmin);
 
             await expect(
-                bvsElectionsAdmin.registerAsPreElectionCandidate()
+                bvsElectionsAdmin.registerPreElectionCandidate(accounts[1])
             ).not.to.be.reverted
 
             assert.equal((await bvsElectionsAdmin.getPreElectionCandidatesSize()), BigInt(1));
-            assert.equal(await bvsElectionsAdmin.preElectionCandidateScores(accounts[0]), BigInt(1));
+            assert.equal(await bvsElectionsAdmin.preElectionCandidateScores(accounts[1]), BigInt(1));
         })
     });
 
@@ -309,8 +302,6 @@ describe("BVS_Elections", () => {
         it('should revert when pre elections already closed', async () => {
             const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
 
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[1])
-
             await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate);
 
             await expect(
@@ -319,21 +310,10 @@ describe("BVS_Elections", () => {
         })
 
         it('should revert when voter voted 3 times', async () => {
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[1])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[2])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[3])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[4])
-
-            await bvsElections.registerAsPreElectionCandidate();
-
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-            await bvsElectionsAccount1.registerAsPreElectionCandidate();
-
-            const bvsElectionsAccount2 = await bvsElections.connect(accounts[2]);
-            await bvsElectionsAccount2.registerAsPreElectionCandidate();
-
-            const bvsElectionsAccount3 = await bvsElections.connect(accounts[3]);
-            await bvsElectionsAccount3.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[0]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[2]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[3]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -358,7 +338,7 @@ describe("BVS_Elections", () => {
         })
 
         it('should revert when the passed account address is the same as yours', async () => {
-            await bvsElectionsAdmin.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[0]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -368,10 +348,7 @@ describe("BVS_Elections", () => {
         })
 
         it('should revert when try vote on same candidate', async () => {
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[1])
-
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -384,10 +361,7 @@ describe("BVS_Elections", () => {
         })
 
         it('should create/store PreElectionVote object when voter votes first time', async () => {
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[1])
-
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-            await bvsElectionsAccount1.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -399,19 +373,9 @@ describe("BVS_Elections", () => {
         })
 
         it('should add the pre election votes sent by citizens', async () => {
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[1])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[2])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[3])
-            await grantCitizenRoleHelper(bvsVotingAdmin, accounts[4])
-
-            const bvsElectionsAccount1 = await bvsElections.connect(accounts[1]);
-            await bvsElectionsAccount1.registerAsPreElectionCandidate();
-
-            const bvsElectionsAccount3 = await bvsElections.connect(accounts[3]);
-            await bvsElectionsAccount3.registerAsPreElectionCandidate();
-
-            const bvsElectionsAccount4 = await bvsElections.connect(accounts[4]);
-            await bvsElectionsAccount4.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[3]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[4]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -437,8 +401,6 @@ describe("BVS_Elections", () => {
 
     describe('voteOnElections', () => {
         beforeEach(async () => {
-            await grantCitizenshipForAllAccount(accounts, bvsVotingAdmin, 20);
-
             await callScheduleNextElections(bvsElectionsAdmin);
         })
 
@@ -489,7 +451,7 @@ describe("BVS_Elections", () => {
         })
 
         it('should revert when elections already closed', async () => {
-            await bvsElectionsAdmin.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[0]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -511,7 +473,7 @@ describe("BVS_Elections", () => {
         })
 
         it('should add new vote to the candidate', async () => {
-            await bvsElectionsAdmin.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[0]);
             
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 
@@ -538,16 +500,9 @@ describe("BVS_Elections", () => {
         })
 
         it("should provide new political actors", async () => {
-            await grantCitizenshipForAllAccount(accounts, bvsVotingAdmin, 20);
-
-            const winnerCandidate1 = await bvsElections.connect(accounts[1]);
-            await winnerCandidate1.registerAsPreElectionCandidate();
-
-            const winnerCandidate2 = await bvsElections.connect(accounts[2]);
-            await winnerCandidate2.registerAsPreElectionCandidate();
-
-            const loserCandidate = await bvsElections.connect(accounts[10]);
-            await loserCandidate.registerAsPreElectionCandidate();
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[1]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[2]);
+            await bvsElectionsAdmin.registerPreElectionCandidate(accounts[10]);
 
             await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 

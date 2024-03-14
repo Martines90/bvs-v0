@@ -107,14 +107,9 @@ describe("BVS from elections to voting e2e test scenario", () => {
     it("complete e2e scenario", async () => {
         // Elections
         
-        const winnerCandidate1 = await bvsElections.connect(accounts[2]);
-        await winnerCandidate1.registerAsPreElectionCandidate();
-
-       const winnerCandidate2 = await bvsElections.connect(accounts[3]);
-        await winnerCandidate2.registerAsPreElectionCandidate();
-
-        const winnerCandidate3 = await bvsElections.connect(accounts[4]);
-        await winnerCandidate3.registerAsPreElectionCandidate();
+        await bvsElectionsAdmin.registerPreElectionCandidate(accounts[2]);
+        await bvsElectionsAdmin.registerPreElectionCandidate(accounts[3]);
+        await bvsElectionsAdmin.registerPreElectionCandidate(accounts[4]);
 
         await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
 

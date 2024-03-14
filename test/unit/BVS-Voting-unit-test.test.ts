@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, generatBytes32InputArray, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, mockHashedAnwers, sendValuesInEth, startNewVoting } from '../../utils/helpers';
+import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, generatBytes32InputArray, getPayableContractInteractionReport, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, mockHashedAnwers, sendValuesInEth, startNewVoting } from '../../utils/helpers';
 import { deepEqual } from 'assert';
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
@@ -30,6 +30,8 @@ describe("BVS_Voting", () => {
     let NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME: number;
     let MIN_VOTE_SCORE: number;
 
+    let citizenRoleApplicationFee: number;
+
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
@@ -48,15 +50,57 @@ describe("BVS_Voting", () => {
         NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = Number(await bvsVoting.NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME());
         MIN_VOTE_SCORE = Number(await bvsVoting.MIN_VOTE_SCORE());
 
+        citizenRoleApplicationFee = Number(await bvsVoting.citizenRoleApplicationFee());
+
         admin = await bvsVoting.connect(accounts[0]);
 
         MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = Number(await admin.MIN_TOTAL_CONTENT_READ_CHECK_ANSWER())
 
         await grantCitizenshipForAllAccount2(accounts, bvsVoting, 20)
+
+        // register voters
+        await bvsElections.registerVoters(accounts.slice(0,20));
+
+        await time.increaseTo(FAR_FUTURE_DATE - TimeQuantities.YEAR);
+    })
+
+    describe("fund", () => {
+        it("should revert when fund is not enough", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
+            
+            await expect(bvsAccount5.fund({ value:  citizenRoleApplicationFee})).to.be.revertedWith("Fund amount is below minimum");
+        })
+
+        it("should add fund", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
+            
+            const amount =  BigInt(citizenRoleApplicationFee * 1.5);
+            const report = await getPayableContractInteractionReport(admin, accounts[5], async () => await bvsAccount5.fund({ value: amount}))
+
+            const gasCost = report.gasCost;
+
+            assert.equal(amount, report.endContractBalance - report.startContractBalance);
+            assert.equal(
+                (report.startAccountBalance - amount - BigInt(gasCost)),
+                (report.endAccountBalance)
+              );
+
+            assert.equal(await bvsVoting.funders(accounts[5]), BigInt(amount));
+        })
+
+        it("should add more fund", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
+            
+            const amount =  BigInt(citizenRoleApplicationFee * 1.5);
+            await bvsAccount5.fund({ value: amount});
+            await bvsAccount5.fund({ value: amount});
+
+            assert.equal(await bvsVoting.funders(accounts[5]), BigInt(BigInt(2) * amount));
+        })
     })
 
     describe("unlockVotedBudget", () => {
-        const votingTargetBudget = sendValuesInEth.medium / BigInt(2);
+        const votingTargetBudget = sendValuesInEth.large;
         let politicalActor: BVS_Voting;
         let votingKey: string
 
@@ -68,6 +112,7 @@ describe("BVS_Voting", () => {
             admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1]]);
+
             await admin.syncElectedPoliticalActors();
 
             politicalActor = await admin.connect(accounts[1]);
@@ -93,6 +138,7 @@ describe("BVS_Voting", () => {
             await completeVoting(admin, accounts[2]);
             await completeVoting(admin, accounts[3]);
             await completeVoting(admin, accounts[4]);
+
         })
         it("should forbid to unlock voting budget money for non POLITICAL_ACTOR account", async () => {
             const citizen1 = await admin.connect(accounts[3]);
@@ -124,12 +170,18 @@ describe("BVS_Voting", () => {
         it("should fail to unlock voting budget money when BVS balance can't cover it", async () => {
             const account6 = await admin.connect(accounts[6]);
             const account7 = await admin.connect(accounts[7]);
+            const account8 = await admin.connect(accounts[8]);
+            const account9 = await admin.connect(accounts[9]);
 
             await completeVoting(admin, accounts[6]);
             await completeVoting(admin, accounts[7]);
+            await completeVoting(admin, accounts[8]);
+            await completeVoting(admin, accounts[9]);
 
             await account6.voteOnVoting(votingKey, true);
             await account7.voteOnVoting(votingKey, true);
+            await account8.voteOnVoting(votingKey, true);
+            await account9.voteOnVoting(votingKey, true);
 
             await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
@@ -140,39 +192,32 @@ describe("BVS_Voting", () => {
 
         it("should withdraw money when voting is finished and won", async () => {
             const bvsAccount5 = await admin.connect(accounts[5])
-            await bvsAccount5.fund("test@email.com", { value: BigInt(2) * votingTargetBudget })
+            await bvsAccount5.fund({ value: BigInt(2) * votingTargetBudget })
 
             const account6 = await admin.connect(accounts[6]);
             const account7 = await admin.connect(accounts[7]);
+            const account8 = await admin.connect(accounts[8]);
+            const account9 = await admin.connect(accounts[9]);
 
             await completeVoting(admin, accounts[6]);
             await completeVoting(admin, accounts[7]);
+            await completeVoting(admin, accounts[8]);
+            await completeVoting(admin, accounts[9]);
 
             await account6.voteOnVoting(votingKey, true);
             await account7.voteOnVoting(votingKey, true);
+            await account8.voteOnVoting(votingKey, true);
+            await account9.voteOnVoting(votingKey, true);
 
             await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
+        
+            const report = await getPayableContractInteractionReport(admin, accounts[1], async () => await politicalActor.unlockVotingBudget(votingKey))
 
-            const bvsAddress = await admin.getAddress();
-            const provider = admin.runner?.provider;
-
-            const startingBVS_FundingBalance = (await provider?.getBalance(bvsAddress)) || BigInt(0);
-
-
-            const startingPoliticalActorBalance = (await provider?.getBalance(accounts[1])) || BigInt(0);
-
-            const transactionResponse = await politicalActor.unlockVotingBudget(votingKey);
- 
-            const transactionReceipt = (await transactionResponse.wait(1)) || {
-                gasUsed: BigInt(0),
-                gasPrice: BigInt(0),
-            };
-
-            const { gasUsed, gasPrice } = transactionReceipt;
-            const gasCost = gasUsed * gasPrice;
-
-            const endingBVS_FundingBalance = ((await provider?.getBalance(bvsAddress))  || BigInt(0));
-            const endingPoliticalActorBalance = (await provider?.getBalance(accounts[1])) || BigInt(0);
+            const startingBVS_FundingBalance = report.startContractBalance;
+            const startingPoliticalActorBalance = report.startAccountBalance;
+            const endingBVS_FundingBalance = report.endContractBalance;
+            const endingPoliticalActorBalance = report.endAccountBalance;
+            const gasCost = report.gasCost;
 
             assert.equal(endingBVS_FundingBalance, startingBVS_FundingBalance - votingTargetBudget);
             assert.equal(
@@ -184,10 +229,56 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe("_grantCitizenRole", () => {})
-    describe("_grantAdminRole", () => {})
+    describe("_grantAdminRole", () => {
+        it("should revert if user has no ADMINISTRATOR role", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
 
-    describe("syncElectedPoliticalActors", () => {})
+            await expect(bvsAccount5._grantAdminRole(accounts[5])).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
+        })
+
+        it("should grant admin role for both contract(BVS_Elections, BVS_Voting)", async () => {
+            assert.equal((await bvsVoting.getAdminsSize()), BigInt(1));
+            assert.equal((await bvsElections.getAdminsSize()), BigInt(1));
+
+            await admin._grantAdminRole(accounts[1]);
+
+            assert.equal((await bvsVoting.getAdminsSize()), BigInt(2));
+            assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
+            assert.equal((await bvsVoting.hasRole(Roles.ADMINISTRATOR, accounts[1])), true);
+            assert.equal((await bvsElections.hasRole(Roles.ADMINISTRATOR, accounts[1])), true);
+
+            assert.equal((await bvsVoting.adminApprovalSentToAccount(accounts[0], 0)), accounts[1].address);
+        })
+    })
+
+    describe('syncElectedPoliticalActors', () => {
+        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
+
+        beforeEach(async () => {
+            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
+        
+            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
+        })
+
+        it("should revert if user has no ADMINISTRATOR role", async () => {
+            const bvsAccount5 = await admin.connect(accounts[5])
+            await expect(bvsAccount5.syncElectedPoliticalActors()).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
+        })
+
+        it("should sync political actors with elections contract", async () => {
+            assert.equal((await bvsVoting.getPoliticalActorsSize()), BigInt(0));
+
+            await admin.syncElectedPoliticalActors();
+
+            assert.equal((await bvsVoting.getPoliticalActorsSize()), BigInt(5));
+            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[1])), BigInt(2));
+            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[2])), BigInt(2));
+            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[3])), BigInt(2));
+            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[4])), BigInt(2));
+            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[5])), BigInt(2));
+        })
+    })
+ 
 
     describe('setFirstVotingCycleStartDate', () => {
         const firstVotingCycleStartDate = FAR_FUTURE_DATE

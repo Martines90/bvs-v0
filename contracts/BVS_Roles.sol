@@ -89,9 +89,11 @@ contract BVS_Roles is Permissions {
         _;
     }
 
-    constructor() {
-        admins.push(msg.sender);
-        citizens.push(msg.sender);
+    constructor(bool isElections) {
+        if (!isElections) {
+            admins.push(msg.sender);
+            citizens.push(msg.sender);
+        }
         creationDate = block.timestamp;
         _setupRole(ADMINISTRATOR, msg.sender);
         _setupRole(CITIZEN, msg.sender);
@@ -104,6 +106,7 @@ contract BVS_Roles is Permissions {
         adminRoleGrantApprovals[_account]++;
 
         if (
+            admins.length == 0 ||
             (adminRoleGrantApprovals[_account] * 1000) / admins.length >=
             MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
         ) {

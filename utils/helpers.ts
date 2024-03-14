@@ -83,17 +83,9 @@ export const getPermissionDenyReasonMessage = (accountAddress: string, roleKecca
 }
 
 
-// Elections
-
-export const grantCitizenshipForAllAccount = async (accounts: SignerWithAddress[], admin: BVS_Voting, limit = accounts.length) => {
-    for (let i = 1; limit > i; i++) {
-        grantCitizenRoleHelper(admin, accounts[i]);
-    }
-}
-
 export const grantCitizenshipForAllAccount2 = async (accounts: SignerWithAddress[], admin: BVS_Voting, limit = accounts.length) => {
-    for (let i = 1; limit > i; i++) {
-        grantCitizenRoleHelper(admin, accounts[i]);
+    for (let i = 1; limit >= i; i++) {
+        await grantCitizenRoleHelper(admin, accounts[i]);
     }
 }
 
@@ -191,7 +183,7 @@ export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWith
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
     if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
-        grantCitizenRoleHelper(admin, voterAccount);
+        await grantCitizenRoleHelper(admin, voterAccount);
     }
 
     await voter.completeContentReadQuiz(1, votingKey, bytes32(""), answers);
@@ -250,30 +242,38 @@ export const callScheduleNextElections = (connectedAccount: BVS_Elections, mockI
 
 export const electCandidates = async (admin: BVS_Elections, candidates: SignerWithAddress[]) => {
     const accounts = await ethers.getSigners()
-    await callScheduleNextElections(admin)
 
-    for (let i = 0;i < candidates.length;i++) {
-        const winnerCandidate = await admin.connect(candidates[i]);
-        await winnerCandidate.registerAsPreElectionCandidate();
+    const baseDate = FAR_FUTURE_DATE - 6*TimeQuantities.MONTH;
+    const electionsDateCondig = {
+        preElectionsStartDate: baseDate + TimeQuantities.MONTH + TimeQuantities.DAY,
+        preElectionsEndDate: baseDate + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
+        electionsStartDate: baseDate + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
+        electionsEndDate: baseDate + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
     }
 
-    await time.increaseTo(mockNextElectionsConfig.preElectionsStartDate + TimeQuantities.DAY);
+    await callScheduleNextElections(admin, electionsDateCondig)
+
+    for (let i = 0;i < candidates.length;i++) {
+        await admin.registerPreElectionCandidate(candidates[i]);
+    }
+
+    await time.increaseTo(electionsDateCondig.preElectionsStartDate + TimeQuantities.DAY);
 
     for (let i = 0;i < candidates.length;i++) {
         await citizensVoteOnPreElectionsCandidate(candidates[i], [accounts[19-i]], admin);
     }
 
-    await time.increaseTo(mockNextElectionsConfig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);    
+    await time.increaseTo(electionsDateCondig.preElectionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);    
 
     await admin.closePreElections();
 
-    await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+    await time.increaseTo(electionsDateCondig.electionsStartDate + TimeQuantities.DAY);
 
     for (let i = 0;i < candidates.length;i++) {
         await citizensVoteOnElectionsCandidate(candidates[i], [accounts[19-i]], admin);
     }
 
-    await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+    await time.increaseTo(electionsDateCondig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
 
     await admin.closeElections()
 
@@ -282,4 +282,40 @@ export const electCandidates = async (admin: BVS_Elections, candidates: SignerWi
 export const grantCitizenRoleHelper = async (admin: BVS_Voting, account: SignerWithAddress) => {
     const bvsVotingAccount1 = await admin.connect(account);
     await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
+    // move to next day
+    await time.increase(TimeQuantities.DAY)
+
+    await admin.grantCitizenRole(account, false);
+}
+
+
+export const getPayableContractInteractionReport = async (admin: BVS_Voting, account: SignerWithAddress, actionFN: any) => {
+    const bvsAddress = await admin.getAddress();
+    const provider = admin.runner?.provider;
+
+    const startContractBalance = (await provider?.getBalance(bvsAddress)) || BigInt(0);
+
+
+    const startAccountBalance = (await provider?.getBalance(account)) || BigInt(0);
+
+    const transactionResponse = await actionFN();
+
+    const transactionReceipt = (await transactionResponse.wait(1)) || {
+        gasUsed: BigInt(0),
+        gasPrice: BigInt(0),
+    };
+
+    const { gasUsed, gasPrice } = transactionReceipt;
+    const gasCost = gasUsed * gasPrice;
+
+    const endContractBalance = ((await provider?.getBalance(bvsAddress))  || BigInt(0));
+    const endAccountBalance = (await provider?.getBalance(account)) || BigInt(0);
+
+    return {
+        startContractBalance,
+        startAccountBalance,
+        endContractBalance,
+        endAccountBalance,
+        gasCost
+    }
 }

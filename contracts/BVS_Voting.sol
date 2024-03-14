@@ -72,6 +72,8 @@ contract BVS_Voting is BVS_Roles {
         bool isContentCompleted;
     }
 
+    mapping(address => uint) public funders;
+
     // article content check answers
     mapping(bytes32 => bytes32[]) public articleContentReadCheckAnswers; // article key => answers
 
@@ -212,6 +214,7 @@ contract BVS_Voting is BVS_Roles {
     }
 
     modifier enoughVotesArrived(bytes32 _votingKey) {
+        console.log((votings[_votingKey].voteCount * 100) / citizens.length);
         if (
             (votings[_votingKey].voteCount * 100) / citizens.length <
             MIN_PERCENTAGE_OF_VOTES
@@ -393,10 +396,18 @@ contract BVS_Voting is BVS_Roles {
 
     // CONTRACT LOGIC *****************************************************************
 
-    constructor() BVS_Roles() {
+    constructor() BVS_Roles(false) {
         bvsHelpers = new BVS_Helpers();
         bvsElections = new BVS_Elections();
         bvsElections.sendGrantAdministratorRoleApproval(msg.sender);
+    }
+
+    function fund() public payable {
+        require(
+            msg.value > citizenRoleApplicationFee,
+            "Fund amount is below minimum"
+        );
+        funders[msg.sender] += msg.value;
     }
 
     function updateCitizenshipRoleApplicationFee(
@@ -415,14 +426,6 @@ contract BVS_Voting is BVS_Roles {
 
         citizenshipApplications[msg.sender] = _emailAddress;
         emit AccountAppliedForCitizenship(msg.sender);
-    }
-
-    function _grantCitizenRole(
-        address _account
-    ) public onlyRole(ADMINISTRATOR) {
-        grantCitizenRole(_account, false);
-        bvsElections.grantCitizenRole(_account, false);
-        emit CitizenshipRoleGranted(_account, msg.sender);
     }
 
     function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {
