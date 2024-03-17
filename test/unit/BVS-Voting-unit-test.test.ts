@@ -113,8 +113,6 @@ describe("BVS_Voting", () => {
 
             await electCandidates(bvsElections,[accounts[1]]);
 
-            await admin.syncElectedPoliticalActors();
-
             politicalActor = await admin.connect(accounts[1]);
 
             await time.increaseTo(FAR_FUTURE_DATE - 12 * TimeQuantities.DAY);
@@ -229,18 +227,18 @@ describe("BVS_Voting", () => {
         })
     })
 
-    describe("_grantAdminRole", () => {
+    describe("sendGrantAdministratorRoleApproval", () => {
         it("should revert if user has no ADMINISTRATOR role", async () => {
             const bvsAccount5 = await admin.connect(accounts[5])
 
-            await expect(bvsAccount5._grantAdminRole(accounts[5])).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
+            await expect(bvsAccount5.sendGrantAdministratorRoleApproval(accounts[5])).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
         })
 
         it("should grant admin role for both contract(BVS_Elections, BVS_Voting)", async () => {
             assert.equal((await bvsVoting.getAdminsSize()), BigInt(1));
             assert.equal((await bvsElections.getAdminsSize()), BigInt(1));
 
-            await admin._grantAdminRole(accounts[1]);
+            await admin.sendGrantAdministratorRoleApproval(accounts[1]);
 
             assert.equal((await bvsVoting.getAdminsSize()), BigInt(2));
             assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
@@ -256,14 +254,14 @@ describe("BVS_Voting", () => {
             assert.equal((await bvsVoting.getAdminsSize()), BigInt(1));
             assert.equal((await bvsElections.getAdminsSize()), BigInt(1));
 
-            await admin._grantAdminRole(accounts[1]);
+            await admin.sendGrantAdministratorRoleApproval(accounts[1]);
 
             const admin2 = bvsVoting.connect(accounts[1]);
 
             assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
 
             console.log('admin')
-            await admin._grantAdminRole(accounts[2]);
+            await admin.sendGrantAdministratorRoleApproval(accounts[2]);
 
             assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
 
@@ -285,40 +283,11 @@ describe("BVS_Voting", () => {
             
             // whe have not +50% support
             console.log('admin 2')
-            await admin2._grantAdminRole(accounts[2]);
+            await admin2.sendGrantAdministratorRoleApproval(accounts[2]);
 
             assert.equal((await bvsVoting.getAdminsSize()), BigInt(3));
         })
     })
-
-    describe('syncElectedPoliticalActors', () => {
-        const mockFirstVotingCycleStartDate = FAR_FUTURE_DATE
-
-        beforeEach(async () => {
-            await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
-        
-            await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-        })
-
-        it("should revert if user has no ADMINISTRATOR role", async () => {
-            const bvsAccount5 = await admin.connect(accounts[5])
-            await expect(bvsAccount5.syncElectedPoliticalActors()).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
-        })
-
-        it("should sync political actors with elections contract", async () => {
-            assert.equal((await bvsVoting.getPoliticalActorsSize()), BigInt(0));
-
-            await admin.syncElectedPoliticalActors();
-
-            assert.equal((await bvsVoting.getPoliticalActorsSize()), BigInt(5));
-            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[1])), BigInt(2));
-            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[2])), BigInt(2));
-            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[3])), BigInt(2));
-            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[4])), BigInt(2));
-            assert.equal((await bvsVoting.politicalActorVotingCredits(accounts[5])), BigInt(2));
-        })
-    })
- 
 
     describe('setFirstVotingCycleStartDate', () => {
         const firstVotingCycleStartDate = FAR_FUTURE_DATE
@@ -351,7 +320,6 @@ describe("BVS_Voting", () => {
             await admin.firstVotingCycleStartDate(), BigInt(firstVotingCycleStartDate)
 
             await electCandidates(bvsElections,[accounts[1]]);
-            await admin.syncElectedPoliticalActors();
 
             const politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -378,7 +346,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
         })
 
         it('should revert when non POLITICAL_ACTOR calls it', async () => {
@@ -513,7 +480,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
         
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -559,7 +525,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -623,7 +588,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -737,7 +701,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -801,7 +764,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -854,8 +816,7 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
-
+ 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
             await time.increaseTo(mockFirstVotingCycleStartDate + TimeQuantities.DAY);
@@ -917,7 +878,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -985,7 +945,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(mockFirstVotingCycleStartDate);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1074,7 +1033,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - (VOTING_DURATION - TimeQuantities.DAY));
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1117,7 +1075,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1167,7 +1124,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1218,7 +1174,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1282,7 +1237,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1348,7 +1302,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 
@@ -1414,7 +1367,6 @@ describe("BVS_Voting", () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
 
             await electCandidates(bvsElections,[accounts[1],accounts[2], accounts[3], accounts[4], accounts[5]]);
-            await admin.syncElectedPoliticalActors();
 
             politicalActor = await bvsVoting.connect(accounts[1]);
 

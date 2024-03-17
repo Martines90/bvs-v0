@@ -6,9 +6,6 @@ pragma solidity ^0.8.9;
 import "./BVS_Roles.sol";
 import "./BVS_Helpers.sol";
 
-import "./BVS_Funding.sol";
-import "./BVS_Elections.sol";
-
 import "hardhat/console.sol";
 
 /**
@@ -20,6 +17,8 @@ import "hardhat/console.sol";
 
 contract BVS_Voting is BVS_Roles {
     // CONSTANTS
+    uint public constant ELECTION_START_END_INTERVAL = 30 days;
+    uint public constant MINIMUM_PERCENTAGE_OF_ELECTION_VOTES = 10;
 
     uint public constant VOTING_CYCLE_INTERVAL = 30 days;
     uint public constant VOTING_DURATION = 14 days;
@@ -38,6 +37,10 @@ contract BVS_Voting is BVS_Roles {
 
     uint public firstVotingCycleStartDate;
     uint public citizenRoleApplicationFee = 10000;
+    uint public electionsCandidateApplicationFee = 10000000;
+
+    uint public electionsStartDate;
+    uint public electionsEndDate;
 
     // DATA OBJECTS
 
@@ -72,7 +75,7 @@ contract BVS_Voting is BVS_Roles {
         bool isContentCompleted;
     }
 
-    mapping(address => uint) public funders;
+    // mapping(address => uint) public funders;
 
     // article content check answers
     mapping(bytes32 => bytes32[]) public articleContentReadCheckAnswers; // article key => answers
@@ -108,14 +111,19 @@ contract BVS_Voting is BVS_Roles {
 
     BVS_Helpers public immutable bvsHelpers;
 
-    BVS_Elections public immutable bvsElections;
+    // elections
+
+    address[] public electionCandidates;
+    mapping(address => uint32) public electionCandidateScores;
+
+    mapping(address => address) public electionVotes;
+    address[] public electionVoters;
 
     // EVENTS
-
-    event AccountAppliedForCitizenship(address account);
     event CitizenshipRoleGranted(address to, address from);
 
     // ERRORS **************************************************************
+    error MinimumApplicationFeeNotCovered();
 
     error VotingAlreadyStarted();
     error VotingCanBeApproved3DaysOrLessBeforeItsStart();
@@ -147,6 +155,19 @@ contract BVS_Voting is BVS_Roles {
     error NoEnoughVotesReceived();
     error VotingContentCheckQuizNotAssigned();
     error VotingOwnerNotRespondedOnAllArticles();
+
+    // elections
+    error ThereIsAnOngoingElections();
+    error ElectionStartDateHasToBe30DaysAhead();
+
+    error ElectionsNotStartedYet();
+    error ElectionsAlreadyFinished();
+    error AccountCantVoteOnItself();
+    error VoteOnAccountNotBelongToAnyCandidate();
+    error AccountAlreadyVoted();
+
+    error ElectionsAlreadyClosedOrNotYetScheduled();
+    error ElectionsCanOnlyClose7DaysAfterTheirEndDate();
 
     modifier criticisedArticleRelatedToYourVoting(
         bytes32 _votingKey,
@@ -394,13 +415,69 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
+    // elections
+
+    modifier noUnclosedElections() {
+        if (electionsStartDate != 0) {
+            revert ThereIsAnOngoingElections();
+        }
+        _;
+    }
+
+    modifier newElectionsStartDateIs30DaysAhead() {
+        if (
+            electionsStartDate < block.timestamp + ELECTION_START_END_INTERVAL
+        ) {
+            revert ElectionStartDateHasToBe30DaysAhead();
+        }
+        _;
+    }
+
+    modifier validVote(address _voteOnAddress) {
+        if (block.timestamp < electionsStartDate || electionsStartDate == 0) {
+            revert ElectionsNotStartedYet();
+        } else if (block.timestamp > electionsEndDate) {
+            revert ElectionsAlreadyFinished();
+        } else if (msg.sender == _voteOnAddress) {
+            revert AccountCantVoteOnItself();
+        } else if (electionCandidateScores[_voteOnAddress] == 0) {
+            revert VoteOnAccountNotBelongToAnyCandidate();
+        } else if (electionVotes[msg.sender] != address(0)) {
+            revert AccountAlreadyVoted();
+        }
+        _;
+    }
+
+    modifier canCloseElections() {
+        if (electionsStartDate == 0) {
+            revert ElectionsAlreadyClosedOrNotYetScheduled();
+        } else if (electionsEndDate + 7 days > block.timestamp) {
+            revert ElectionsCanOnlyClose7DaysAfterTheirEndDate();
+        }
+        _;
+    }
+
+    modifier minCitizenshipApplicationFeeCovered() {
+        if (msg.value < citizenRoleApplicationFee) {
+            revert MinimumApplicationFeeNotCovered();
+        }
+        _;
+    }
+
+    modifier minCandidateApplicationFeeCovered() {
+        if (msg.value > electionsCandidateApplicationFee) {
+            revert MinimumApplicationFeeNotCovered();
+        }
+        _;
+    }
+
     // CONTRACT LOGIC *****************************************************************
 
-    constructor() BVS_Roles(false) {
+    constructor() BVS_Roles() {
         bvsHelpers = new BVS_Helpers();
-        bvsElections = new BVS_Elections();
-        bvsElections.sendGrantAdministratorRoleApproval(msg.sender);
     }
+
+    /*
 
     function fund() public payable {
         require(
@@ -408,6 +485,74 @@ contract BVS_Voting is BVS_Roles {
             "Fund amount is below minimum"
         );
         funders[msg.sender] += msg.value;
+    }
+    */
+
+    function scheduleNextElections(
+        uint256 _electionsStartDate,
+        uint256 _electionsEndDate
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        noUnclosedElections
+        newElectionsStartDateIs30DaysAhead
+    {
+        electionsStartDate = _electionsStartDate;
+        electionsEndDate = _electionsEndDate;
+
+        for (uint i = 0; i < politicalActors.length; i++) {
+            _revokeRole(POLITICAL_ACTOR, politicalActors[i]);
+            delete politicalActorVotingCredits[politicalActors[i]];
+            delete politicalActors[i];
+        }
+        politicalActors = new address[](0);
+    }
+
+    function applyForElections()
+        public
+        payable
+        minCandidateApplicationFeeCovered
+    {
+        electionCandidates.push(msg.sender);
+        electionCandidateScores[msg.sender] = 1;
+    }
+
+    function voteOnElections(
+        address voteOnAddress
+    ) public validVote(voteOnAddress) onlyRole(CITIZEN) {
+        electionVotes[msg.sender] = voteOnAddress;
+        electionVoters.push(msg.sender);
+        electionCandidateScores[voteOnAddress]++;
+    }
+
+    function closeElections() public canCloseElections onlyRole(ADMINISTRATOR) {
+        // assign roles to the winners
+        uint256 totalVotes = electionVoters.length;
+        for (uint i = 0; i < electionCandidates.length; i++) {
+            uint256 votesOwnedPercentage = ((electionCandidateScores[
+                electionCandidates[i]
+            ] - 1) * 1000) / totalVotes;
+
+            if (votesOwnedPercentage > MINIMUM_PERCENTAGE_OF_ELECTION_VOTES) {
+                uint256 votingCycleTotalCredit = (votesOwnedPercentage -
+                    MINIMUM_PERCENTAGE_OF_ELECTION_VOTES *
+                    10) /
+                    100 +
+                    1;
+
+                politicalActors.push(electionCandidates[i]);
+                politicalActorVotingCredits[
+                    electionCandidates[i]
+                ] = votingCycleTotalCredit;
+            }
+
+            delete electionCandidateScores[electionCandidates[i]];
+        }
+
+        electionCandidates = new address[](0);
+        electionVoters = new address[](0);
+
+        electionsStartDate = 0;
     }
 
     function updateCitizenshipRoleApplicationFee(
@@ -418,26 +563,8 @@ contract BVS_Voting is BVS_Roles {
 
     function applyForCitizenshipRole(
         string memory _emailAddress
-    ) public payable {
-        require(
-            msg.value > citizenRoleApplicationFee,
-            "Minimum application fee not covered"
-        );
-
+    ) public payable minCitizenshipApplicationFeeCovered {
         citizenshipApplications[msg.sender] = _emailAddress;
-        emit AccountAppliedForCitizenship(msg.sender);
-    }
-
-    function _grantAdminRole(address _account) public onlyRole(ADMINISTRATOR) {
-        sendGrantAdministratorRoleApproval(_account);
-        bvsElections.sendGrantAdministratorRoleApproval(_account);
-    }
-
-    function _revokeAdminRoleApproval(
-        address _account
-    ) public onlyRole(ADMINISTRATOR) {
-        revokeAdminRoleApproval(_account);
-        bvsElections.revokeAdminRoleApproval(_account);
     }
 
     function unlockVotingBudget(
@@ -454,25 +581,6 @@ contract BVS_Voting is BVS_Roles {
         require(callSuccess, "Call failed");
 
         votings[_votingKey].budget = 0; // make sure no more money can be requested
-    }
-
-    function syncElectedPoliticalActors() public onlyRole(ADMINISTRATOR) {
-        bvsElections.lastElectionsShouldCompletedAndClosed();
-
-        for (uint i = 0; i < politicalActors.length; i++) {
-            delete politicalActorVotingCredits[politicalActors[i]];
-            delete politicalActors[i];
-        }
-
-        uint numOfWinnersOfLastElections = bvsElections.getWinnersSize();
-        address account;
-        uint credit;
-        for (uint i = 0; i < numOfWinnersOfLastElections; i++) {
-            (account, credit) = bvsElections.winners(i);
-            _setupRole(POLITICAL_ACTOR, account);
-            politicalActorVotingCredits[account] = credit;
-            politicalActors.push(account);
-        }
     }
 
     function setFirstVotingCycleStartDate(

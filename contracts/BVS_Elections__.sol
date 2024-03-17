@@ -17,7 +17,7 @@ import "hardhat/console.sol";
  * @dev
  */
 
-contract BVS_Elections is BVS_Roles {
+contract BVS_Elections__ is BVS_Roles {
     uint256 constant ELECTION_START_END_INTERVAL = 30 days;
     uint256 constant MINIMUM_PERCENTAGE_OF_PRE_ELECTION_VOTES = 20;
     uint256 constant MINIMUM_PERCENTAGE_OF_ELECTION_VOTES = 10;
@@ -61,13 +61,13 @@ contract BVS_Elections is BVS_Roles {
 
     Winner[] public winners;
 
-    constructor() BVS_Roles(true) {}
+    constructor() BVS_Roles() {}
 
     function registerVoters(
         address[] memory _accounts
     ) public onlyRole(ADMINISTRATOR) {
         for (uint i = 0; i < _accounts.length; i++) {
-            grantVoterRole(_accounts[i]);
+            grantCitizenRole(_accounts[i], false);
         }
     }
 
@@ -206,7 +206,9 @@ contract BVS_Elections is BVS_Roles {
         preElectionCandidateScores[_account] = 1;
     }
 
-    function voteOnPreElections(address voteOnAddress) public onlyRole(VOTER) {
+    function voteOnPreElections(
+        address voteOnAddress
+    ) public onlyRole(CITIZEN) {
         PreElectionVoter memory preElectionVoter = preElectionVotes[msg.sender];
         require(
             block.timestamp > preElectionsStartDate &&
@@ -257,7 +259,7 @@ contract BVS_Elections is BVS_Roles {
         preElectionCandidateScores[voteOnAddress]++;
     }
 
-    function voteOnElections(address voteOnAddress) public onlyRole(VOTER) {
+    function voteOnElections(address voteOnAddress) public onlyRole(CITIZEN) {
         require(
             0 == preElectionsStartDate,
             "Pre elections not yet closed or scheduled"

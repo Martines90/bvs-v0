@@ -22,7 +22,6 @@ contract BVS_Roles is Permissions {
     bytes32 public constant ADMINISTRATOR = keccak256("ADMINISTRATOR");
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
     bytes32 public constant CITIZEN = keccak256("CITIZEN");
-    bytes32 public constant VOTER = keccak256("VOTER");
 
     address[] public admins;
     address[] public politicalActors;
@@ -89,11 +88,9 @@ contract BVS_Roles is Permissions {
         _;
     }
 
-    constructor(bool isElections) {
-        if (!isElections) {
-            admins.push(msg.sender);
-            citizens.push(msg.sender);
-        }
+    constructor() {
+        admins.push(msg.sender);
+        citizens.push(msg.sender);
         creationDate = block.timestamp;
         _setupRole(ADMINISTRATOR, msg.sender);
         _setupRole(CITIZEN, msg.sender);
@@ -120,14 +117,10 @@ contract BVS_Roles is Permissions {
         }
     }
 
-    function grantVoterRole(address _account) public onlyRole(ADMINISTRATOR) {
-        _setupRole(VOTER, _account);
-    }
-
-    function i_RevokeAdminRoleApproval(
+    function revokeAdminRoleApproval(
         address admin,
         address revokedAccount
-    ) internal {
+    ) public onlyRole(ADMINISTRATOR) {
         for (uint i = 0; i < adminApprovalSentToAccount[admin].length; i++) {
             if (adminApprovalSentToAccount[admin][i] == revokedAccount) {
                 delete adminApprovalSentToAccount[admin][i];
@@ -149,7 +142,7 @@ contract BVS_Roles is Permissions {
                         k < adminApprovalSentToAccount[revokedAccount].length;
                         k++
                     ) {
-                        i_RevokeAdminRoleApproval(
+                        revokeAdminRoleApproval(
                             revokedAccount,
                             adminApprovalSentToAccount[revokedAccount][i]
                         );
@@ -159,12 +152,6 @@ contract BVS_Roles is Permissions {
                 }
             }
         }
-    }
-
-    function revokeAdminRoleApproval(
-        address _account
-    ) public onlyRole(ADMINISTRATOR) {
-        i_RevokeAdminRoleApproval(msg.sender, _account);
     }
 
     function grantCitizenRole(
