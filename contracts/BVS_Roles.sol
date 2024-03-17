@@ -107,7 +107,7 @@ contract BVS_Roles is Permissions {
 
         if (
             admins.length == 0 ||
-            (adminRoleGrantApprovals[_account] * 1000) / admins.length >=
+            (adminRoleGrantApprovals[_account] * 1000) / admins.length >
             MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
         ) {
             // also new admin has to automatically send his approvals to the already existing admins

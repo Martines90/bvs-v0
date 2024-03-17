@@ -248,6 +248,46 @@ describe("BVS_Voting", () => {
             assert.equal((await bvsElections.hasRole(Roles.ADMINISTRATOR, accounts[1])), true);
 
             assert.equal((await bvsVoting.adminApprovalSentToAccount(accounts[0], 0)), accounts[1].address);
+            assert.equal((await bvsVoting.adminApprovalSentToAccount(accounts[1], 0)), accounts[0].address);
+        })
+
+        it("should not grant admin role if has no majority support reached", async () => {
+            console.log('start')
+            assert.equal((await bvsVoting.getAdminsSize()), BigInt(1));
+            assert.equal((await bvsElections.getAdminsSize()), BigInt(1));
+
+            await admin._grantAdminRole(accounts[1]);
+
+            const admin2 = bvsVoting.connect(accounts[1]);
+
+            assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
+
+            console.log('admin')
+            await admin._grantAdminRole(accounts[2]);
+
+            assert.equal((await bvsElections.getAdminsSize()), BigInt(2));
+
+            
+
+            console.log('bvsVoting admins:')
+            console.log(await bvsVoting.admins(0));
+            console.log(await bvsVoting.admins(1));
+            console.log(await bvsVoting.adminApprovalSentToAccount(accounts[0], 0))
+            console.log(await bvsVoting.adminApprovalSentToAccount(accounts[1], 0))
+
+            console.log('bvsElections admins:')
+            console.log(await bvsElections.admins(0));
+            console.log(await bvsElections.admins(1));
+
+            console.log('admin role approvals sent:')
+            console.log(await bvsElections.adminApprovalSentToAccount(accounts[0], 0))
+            console.log(await bvsElections.adminApprovalSentToAccount(accounts[1], 0))
+            
+            // whe have not +50% support
+            console.log('admin 2')
+            await admin2._grantAdminRole(accounts[2]);
+
+            assert.equal((await bvsVoting.getAdminsSize()), BigInt(3));
         })
     })
 
