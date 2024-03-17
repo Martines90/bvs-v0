@@ -235,7 +235,6 @@ contract BVS_Voting is BVS_Roles {
     }
 
     modifier enoughVotesArrived(bytes32 _votingKey) {
-        console.log((votings[_votingKey].voteCount * 100) / citizens.length);
         if (
             (votings[_votingKey].voteCount * 100) / citizens.length <
             MIN_PERCENTAGE_OF_VOTES
@@ -424,9 +423,9 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
-    modifier newElectionsStartDateIs30DaysAhead() {
+    modifier newElectionsStartDateIs30DaysAhead(uint _electionsStartDate) {
         if (
-            electionsStartDate < block.timestamp + ELECTION_START_END_INTERVAL
+            _electionsStartDate < block.timestamp + ELECTION_START_END_INTERVAL
         ) {
             revert ElectionStartDateHasToBe30DaysAhead();
         }
@@ -465,7 +464,7 @@ contract BVS_Voting is BVS_Roles {
     }
 
     modifier minCandidateApplicationFeeCovered() {
-        if (msg.value > electionsCandidateApplicationFee) {
+        if (msg.value < electionsCandidateApplicationFee) {
             revert MinimumApplicationFeeNotCovered();
         }
         _;
@@ -476,6 +475,8 @@ contract BVS_Voting is BVS_Roles {
     constructor() BVS_Roles() {
         bvsHelpers = new BVS_Helpers();
     }
+
+    receive() external payable {}
 
     /*
 
@@ -495,7 +496,7 @@ contract BVS_Voting is BVS_Roles {
         public
         onlyRole(ADMINISTRATOR)
         noUnclosedElections
-        newElectionsStartDateIs30DaysAhead
+        newElectionsStartDateIs30DaysAhead(_electionsStartDate)
     {
         electionsStartDate = _electionsStartDate;
         electionsEndDate = _electionsEndDate;
@@ -540,6 +541,7 @@ contract BVS_Voting is BVS_Roles {
                     100 +
                     1;
 
+                _setupRole(POLITICAL_ACTOR, electionCandidates[i]);
                 politicalActors.push(electionCandidates[i]);
                 politicalActorVotingCredits[
                     electionCandidates[i]
