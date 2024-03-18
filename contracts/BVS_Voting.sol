@@ -158,9 +158,11 @@ contract BVS_Voting is BVS_Roles {
 
     // elections
     error ThereIsAnOngoingElections();
+    error ThereIsNoOngoingElections();
     error ElectionStartDateHasToBe30DaysAhead();
 
-    error ElectionsNotStartedYet();
+    error ElectionsNotScheduledOrAlreadyStarted();
+    error AccountAlreadyAppliedForElections();
     error ElectionsAlreadyFinished();
     error AccountCantVoteOnItself();
     error VoteOnAccountNotBelongToAnyCandidate();
@@ -423,6 +425,15 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
+    modifier validApplication() {
+        if (electionsStartDate == 0 || electionsStartDate < block.timestamp) {
+            revert ElectionsNotScheduledOrAlreadyStarted();
+        } else if (electionCandidateScores[msg.sender] > 0) {
+            revert AccountAlreadyAppliedForElections();
+        }
+        _;
+    }
+
     modifier newElectionsStartDateIs30DaysAhead(uint _electionsStartDate) {
         if (
             _electionsStartDate < block.timestamp + ELECTION_START_END_INTERVAL
@@ -434,7 +445,7 @@ contract BVS_Voting is BVS_Roles {
 
     modifier validVote(address _voteOnAddress) {
         if (block.timestamp < electionsStartDate || electionsStartDate == 0) {
-            revert ElectionsNotStartedYet();
+            revert ThereIsNoOngoingElections();
         } else if (block.timestamp > electionsEndDate) {
             revert ElectionsAlreadyFinished();
         } else if (msg.sender == _voteOnAddress) {
@@ -512,7 +523,9 @@ contract BVS_Voting is BVS_Roles {
     function applyForElections()
         public
         payable
+        onlyRole(CITIZEN)
         minCandidateApplicationFeeCovered
+        validApplication
     {
         electionCandidates.push(msg.sender);
         electionCandidateScores[msg.sender] = 1;
@@ -520,13 +533,13 @@ contract BVS_Voting is BVS_Roles {
 
     function voteOnElections(
         address voteOnAddress
-    ) public validVote(voteOnAddress) onlyRole(CITIZEN) {
+    ) public onlyRole(CITIZEN) validVote(voteOnAddress) {
         electionVotes[msg.sender] = voteOnAddress;
         electionVoters.push(msg.sender);
         electionCandidateScores[voteOnAddress]++;
     }
 
-    function closeElections() public canCloseElections onlyRole(ADMINISTRATOR) {
+    function closeElections() public onlyRole(ADMINISTRATOR) canCloseElections {
         // assign roles to the winners
         uint256 totalVotes = electionVoters.length;
         for (uint i = 0; i < electionCandidates.length; i++) {
@@ -1082,5 +1095,13 @@ contract BVS_Voting is BVS_Roles {
 
     function getVotinCycleIndexesSize() public view returns (uint) {
         return votingCycleIndexes.length;
+    }
+
+    function getElectionCandidatesSize() public view returns (uint256) {
+        return electionCandidates.length;
+    }
+
+    function getElectionVotersSize() public view returns (uint256) {
+        return electionVoters.length;
     }
 }

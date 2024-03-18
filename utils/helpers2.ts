@@ -6,6 +6,8 @@ import { BVS_Voting } from "../typechain-types";
 
 const bytes32 = require('bytes32');
 
+const hourInMilSec = 60 * 60;
+
 export const NOW = Math.round(Date.now() / 1000);
 
 
@@ -23,13 +25,6 @@ export enum FundingSizeLevels {
     LARGE = 2
 }
 
-export const FAR_FUTURE_DATE = 2524687964; // GMT: 2050. January 1., Saturday 22:12:44
-
-const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
-
-const hourInMiliSec = 60 * 60;
-
-
 export enum Roles {
     ADMINISTRATOR = '0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661',
     POLITICAL_ACTOR = '0x9f70d138cbbd87297896478196b4493d9dceaca01f5883ecbd7bee66d300348d',
@@ -38,16 +33,23 @@ export enum Roles {
 }
 
 export enum TimeQuantities {
-    YEAR = hourInMiliSec * 24 * 356,
-    MONTH = hourInMiliSec * 24 * 30,
-    WEEK = hourInMiliSec * 24 * 7,
-    DAY = hourInMiliSec * 24,
-    HOUR = hourInMiliSec
+    YEAR = hourInMilSec * 24 * 356,
+    MONTH = hourInMilSec * 24 * 30,
+    WEEK = hourInMilSec * 24 * 7,
+    DAY = hourInMilSec * 24,
+    HOUR = hourInMilSec
 }
 
+export const FAR_FUTURE_DATE = 2524687964; // GMT: 2050. January 1., Saturday 22:12:44
+
+const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+
+export const startTime = FAR_FUTURE_DATE - TimeQuantities.YEAR;
+
+
 export const mockNextElectionsConfig = {
-    electionsStartDate: NOW + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
-    electionsEndDate: NOW + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    electionsStartDate: startTime + 3 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    electionsEndDate: startTime + 4 * TimeQuantities.MONTH + TimeQuantities.DAY,
 }
 
 export const sendValuesInEth = {
@@ -229,7 +231,20 @@ export const callScheduleNextElections = (connectedAccount: BVS_Voting, mockInpu
 
 // electCandidates
 
+export const applyCandidatesForElections = async (admin: BVS_Voting, candidates: SignerWithAddress[]) => {
+
+    const electionsApplicationFee = Number(await admin.electionsCandidateApplicationFee());
+
+    for (let i = 0;i < candidates.length;i++) {
+        const candidate = await admin.connect(candidates[i]);
+        await candidate.applyForElections({ value: electionsApplicationFee * 1.1});
+    }
+}
+
 export const electCandidates = async (admin: BVS_Voting, candidates: SignerWithAddress[]) => {
+
+    await applyCandidatesForElections(admin, candidates);
+    
     const accounts = await ethers.getSigners()
 
     const baseDate = FAR_FUTURE_DATE - 6*TimeQuantities.MONTH;

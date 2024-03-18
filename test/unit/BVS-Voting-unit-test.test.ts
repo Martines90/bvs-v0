@@ -5,7 +5,7 @@ import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, completeArticle, completeArticleResponse, completeVoting, electCandidates, generatBytes32InputArray, getPayableContractInteractionReport, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, mockHashedAnwers, sendValuesInEth, startNewVoting } from '../../utils/helpers2';
+import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, addArticleToVotingWithQuizAndAnswers, addQuizAndContentCheckAnswersToVoting, addResponseToArticleWithQuizAndAnswers, applyCandidatesForElections, assignAnswersToArticle, assignAnswersToArticleResponse, assignAnswersToVoting, callScheduleNextElections, citizensVoteOnElectionsCandidate, completeArticle, completeArticleResponse, completeVoting, electCandidates, generatBytes32InputArray, getPayableContractInteractionReport, getPermissionDenyReasonMessage, grantCitizenshipForAllAccount2, mockHashedAnwers, mockNextElectionsConfig, sendValuesInEth, startNewVoting, startTime } from '../../utils/helpers2';
 import { deepEqual } from 'assert';
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
@@ -60,7 +60,275 @@ describe("BVS_Voting", () => {
 
         await grantCitizenshipForAllAccount2(accounts, bvsVoting, 20)
 
-        await time.increaseTo(FAR_FUTURE_DATE - TimeQuantities.YEAR);
+        await time.increaseTo(startTime);
+    })
+
+
+    describe("_scheduleNextElections", () => {
+        it("should get reverted when Account is not an ADMINISTRATOR", async () => {
+            const bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
+
+            await expect(
+                bvsVotingAccount1.scheduleNextElections(mockNextElectionsConfig.electionsStartDate, mockNextElectionsConfig.electionsEndDate)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+        })
+
+        it("should schedule new elections when Account has ADMINISTRATOR role and there is no ongoing elections and input params are correct", async () => {
+            const bvsVotingAccount = await bvsVoting.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsVotingAccount);
+
+            assert.equal(await bvsVotingAccount.electionsStartDate(), BigInt(mockNextElectionsConfig.electionsStartDate));
+            assert.equal(await bvsVotingAccount.electionsEndDate(), BigInt(mockNextElectionsConfig.electionsEndDate));
+        })
+
+        it("should revert scheduling new election attempt when there is an already ongoing election", async () => {
+            const bvsVotingAccount = await bvsVoting.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsVotingAccount);
+
+            await expect(callScheduleNextElections(bvsVotingAccount)).to.be.revertedWithCustomError(bvsVoting, 'ThereIsAnOngoingElections');
+        })
+
+        it("should revert scheduling new election attempt when election start date is not more than 1 month ahead", async () => {
+            const bvsVotingAccount = await bvsVoting.connect(accounts[0]);
+
+            await expect(callScheduleNextElections(bvsVotingAccount, {
+                ...mockNextElectionsConfig,
+                electionsStartDate: startTime + TimeQuantities.MONTH - TimeQuantities.DAY,
+            })).to.be.revertedWithCustomError(bvsVoting, 'ElectionStartDateHasToBe30DaysAhead');
+        })
+
+        it("should allow schedule new election when last election get closed", async () => {
+            const bvsVotingAccount = await bvsVoting.connect(accounts[0]);
+
+            await callScheduleNextElections(bvsVotingAccount);
+
+            const timePassPhase1 = mockNextElectionsConfig.electionsEndDate + TimeQuantities.DAY + TimeQuantities.WEEK;
+            await time.increaseTo(timePassPhase1);
+
+            await bvsVotingAccount.closeElections();
+
+            await time.increaseTo(timePassPhase1 + TimeQuantities.MONTH);
+
+            await expect(callScheduleNextElections(bvsVotingAccount, {
+                electionsStartDate: timePassPhase1 + 3 * TimeQuantities.MONTH,
+                electionsEndDate: timePassPhase1 + 5 * TimeQuantities.MONTH,
+            })).not.to.be.reverted;
+        })
+    })
+
+    describe('_registerElectionCandidate', () => {
+        let bvsVotingAccount1: BVS_Voting;
+        beforeEach(async () => {
+            bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
+        })
+        it('should revert when non CITIZEN calls', async () => {
+            bvsVotingAccount1 = await bvsVoting.connect(accounts[23]);
+
+            await expect(
+                bvsVotingAccount1.applyForElections()
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
+        })
+
+        it('should revert when there is no ongoing elections', async () => {
+            await expect(
+                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            ).to.be.revertedWithCustomError(bvsVoting, 'ElectionsNotScheduledOrAlreadyStarted');
+        })
+
+        it('should revert when elections is already in progress', async () => {
+            await callScheduleNextElections(admin);
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate);
+
+            await expect(
+                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            ).to.be.revertedWithCustomError(bvsVoting, 'ElectionsNotScheduledOrAlreadyStarted');
+        })
+
+        it('should revert when candidate already registered', async () => {
+            await callScheduleNextElections(admin);
+
+            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+
+            await expect(
+                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            ).to.be.revertedWithCustomError(bvsVoting, 'AccountAlreadyAppliedForElections');
+        })
+
+        it('should revert when candidate has no enough application fee', async () => {
+            await callScheduleNextElections(admin);
+
+            await expect(
+                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 0.9})
+            ).to.be.revertedWithCustomError(bvsVoting, 'MinimumApplicationFeeNotCovered');
+        })
+
+        it('should register citizen as an election candidate', async () => {
+            await callScheduleNextElections(admin);
+
+            await expect(
+                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            ).not.to.be.reverted
+
+            assert.equal((await admin.getElectionCandidatesSize()), BigInt(1));
+            assert.equal(await admin.electionCandidateScores(accounts[1]), BigInt(1));
+        })
+    });
+
+    describe('_voteOnElections', () => {
+        let bvsVotingAccount1: BVS_Voting;
+
+        beforeEach(async () => {
+            bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
+            await callScheduleNextElections(admin);
+        })
+
+        it('should revert when non CITIZEN calls', async () => {
+            const bvsVotingAccount1 = await bvsVoting.connect(accounts[23]);
+
+            await expect(
+                bvsVotingAccount1.voteOnElections(accounts[1].address)
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
+        })
+
+        it('should revert when elections not yet started', async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate - TimeQuantities.DAY);
+
+            await expect(
+                admin.voteOnElections(accounts[1].address)
+            ).to.be.revertedWithCustomError(bvsVoting, "ThereIsNoOngoingElections")
+        })
+
+        it('should revert when elections already closed', async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.MONTH);
+            await admin.closeElections();
+
+            await expect(
+                admin.voteOnElections(accounts[1].address)
+            ).to.be.revertedWithCustomError(bvsVoting, "ThereIsNoOngoingElections")
+        })
+
+        it('should revert when account votes on itself', async () => {
+            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                bvsVotingAccount1.voteOnElections(accounts[1].address)
+            ).to.be.revertedWithCustomError(bvsVoting, "AccountCantVoteOnItself")
+        })
+
+        it('should revert when vote on account address not belongs to any candidate', async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            await expect(
+                admin.voteOnElections(accounts[1].address)
+            ).to.be.revertedWithCustomError(bvsVoting, "VoteOnAccountNotBelongToAnyCandidate")
+        })
+
+        it('should revert when account already voted', async () => {
+            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+
+            // start elections
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            const bvsVotingAccount2 = await bvsVoting.connect(accounts[2]);
+            await bvsVotingAccount2.voteOnElections(accounts[1].address)
+
+            await expect(
+                bvsVotingAccount2.voteOnElections(accounts[1].address)
+            ).to.be.revertedWithCustomError(bvsVoting, "AccountAlreadyVoted")
+        })
+
+        it('should add new vote to the candidate', async () => {
+            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            
+            // start elections
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            const bvsVotingAccount2 = await bvsVoting.connect(accounts[2]);
+            await bvsVotingAccount2.voteOnElections(accounts[1].address)
+
+            assert.equal((await admin.electionCandidateScores(accounts[1].address)), BigInt(2));
+            assert.equal((await admin.electionVotes(accounts[2].address)), accounts[1].address);
+        })
+    });
+
+    describe("_closeElections", () => {
+        beforeEach(async () => {
+            await callScheduleNextElections(admin);
+
+            //await time.increaseTo();
+        })
+
+        it("should revert when account don't have ADMINISTRATOR role", async () => {
+            const bvsVotingAccount1 = await bvsVoting.connect(accounts[1]);
+
+            await expect(
+                bvsVotingAccount1.closeElections()
+            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+        });
+
+        it("should revert when elections are already closed", async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.MONTH);
+
+            await admin.closeElections();
+
+            await expect(admin.closeElections()).to.be.revertedWithCustomError(bvsVoting, 'ElectionsAlreadyClosedOrNotYetScheduled');
+        });
+
+        it("should revert when elections end date is not yet passed by 1 week", async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK - TimeQuantities.DAY);
+
+            await expect(admin.closeElections()).to.be.revertedWithCustomError(bvsVoting, 'ElectionsCanOnlyClose7DaysAfterTheirEndDate');
+        });
+
+        it("should close elections", async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await expect(admin.closeElections()).not.to.be.reverted;
+
+            assert.equal((await admin.getElectionCandidatesSize()), BigInt(0));
+            assert.equal((await admin.getElectionVotersSize()), BigInt(0));
+
+            assert.equal(await admin.electionsStartDate(), BigInt(0));
+        })
+    });
+
+    describe("_closeElections success", () => {
+        beforeEach(async () => {
+            await callScheduleNextElections(admin);
+        })
+
+        it("should provide new political actors", async () => {
+            await applyCandidatesForElections(admin, [accounts[1], accounts[2], accounts[10]])
+
+            await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
+
+            // voting on elections
+            const votersA = [accounts[3], accounts[4], accounts[5], accounts[6], accounts[7], accounts[8], accounts[9]];
+            await citizensVoteOnElectionsCandidate(accounts[1], votersA, bvsVoting);
+
+            const votersB = [accounts[12], accounts[13], accounts[14], accounts[15], accounts[16], accounts[17], accounts[18], accounts[19]];
+            await citizensVoteOnElectionsCandidate(accounts[2], votersB, bvsVoting);
+
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+
+            await admin.closeElections();
+
+            assert.equal((await admin.getPoliticalActorsSize()), BigInt(2));
+            assert.equal((await admin.politicalActors(0)), accounts[1].address);
+            assert.equal((await admin.politicalActorVotingCredits(accounts[1].address)), BigInt(Math.floor(((votersA.length * 100 / (votersA.length + votersB.length)) - 10) / 10) + 1));
+ 
+            assert.equal((await admin.politicalActors(1)), accounts[2].address);
+            assert.equal((await admin.politicalActorVotingCredits(accounts[2].address)), BigInt(Math.floor(((votersB.length * 100 / (votersA.length + votersB.length)) - 10) / 10) + 1));
+ 
+            assert.equal((await admin.getElectionCandidatesSize()), BigInt(0));
+            assert.equal((await admin.getElectionVotersSize()), BigInt(0));
+            assert.equal((await admin.electionsStartDate()), BigInt(0));
+        });
     })
 
     /*
@@ -110,9 +378,6 @@ describe("BVS_Voting", () => {
 
         beforeEach(async () => {
             await admin.setFirstVotingCycleStartDate(FAR_FUTURE_DATE - 13 * TimeQuantities.DAY);
-
-            const candidate = await bvsVoting.connect(accounts[1]);
-            await candidate.applyForElections({ value: electionsApplicationFee * 1.1});
 
             await electCandidates(bvsVoting,[accounts[1]]);
 
