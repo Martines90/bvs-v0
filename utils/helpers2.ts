@@ -242,18 +242,17 @@ export const applyCandidatesForElections = async (admin: BVS_Voting, candidates:
 }
 
 export const electCandidates = async (admin: BVS_Voting, candidates: SignerWithAddress[]) => {
+    const electionsDateConfig = {
+        electionsStartDate: startTime + TimeQuantities.MONTH + TimeQuantities.DAY,
+        electionsEndDate: startTime + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
+    }
+
+    await callScheduleNextElections(admin, electionsDateConfig)
 
     await applyCandidatesForElections(admin, candidates);
     
     const accounts = await ethers.getSigners()
-
-    const baseDate = FAR_FUTURE_DATE - 6*TimeQuantities.MONTH;
-    const electionsDateConfig = {
-        electionsStartDate: baseDate + TimeQuantities.MONTH + TimeQuantities.DAY,
-        electionsEndDate: baseDate + 2 * TimeQuantities.MONTH + TimeQuantities.DAY,
-    }
-
-    await callScheduleNextElections(admin, electionsDateConfig)
+   
 
     await time.increaseTo(electionsDateConfig.electionsStartDate + TimeQuantities.DAY);
 
