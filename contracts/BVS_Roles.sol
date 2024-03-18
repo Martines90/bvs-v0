@@ -6,8 +6,6 @@ pragma solidity ^0.8.9;
 // imports
 import "@thirdweb-dev/contracts/extension/Permissions.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title Balanced Voting System:Roles - contract
  * @author Márton Sándor Horváth, email: hmartonsandor{@}gmail.com
@@ -22,6 +20,8 @@ contract BVS_Roles is Permissions {
     bytes32 public constant ADMINISTRATOR = keccak256("ADMINISTRATOR");
     bytes32 public constant POLITICAL_ACTOR = keccak256("POLITICAL_ACTOR");
     bytes32 public constant CITIZEN = keccak256("CITIZEN");
+
+    uint public citizenRoleApplicationFee = 10000;
 
     address[] public admins;
     address[] public politicalActors;
@@ -38,14 +38,28 @@ contract BVS_Roles is Permissions {
 
     mapping(address => string) public citizenshipApplications;
 
-    // Events
-    event adminRoleRevoked(address account);
-
     // Errors
     error CitizenRoleAlreadyGranted();
     error CitizenRoleAlreadyRevokedOrNotGranted();
+    error NotAppliedForCitizenRole();
     error RunOutOfDailyCitizenRoleGrantCredit();
     error AdminRoleGrantApprovalAlreadySent();
+
+    error MinimumApplicationFeeNotCovered();
+
+    modifier minCitizenshipApplicationFeeCovered() {
+        if (msg.value < citizenRoleApplicationFee) {
+            revert MinimumApplicationFeeNotCovered();
+        }
+        _;
+    }
+
+    modifier appliedForCitizenRole(address _account) {
+        if (isEmptyString(citizenshipApplications[_account])) {
+            revert NotAppliedForCitizenRole();
+        }
+        _;
+    }
 
     modifier hasRoleToModify(address _account, bool isRevoke) {
         if (!isRevoke && hasRole(CITIZEN, _account))
@@ -90,10 +104,17 @@ contract BVS_Roles is Permissions {
 
     constructor() {
         admins.push(msg.sender);
+        adminRoleGrantApprovals[msg.sender] = 1;
         citizens.push(msg.sender);
         creationDate = block.timestamp;
         _setupRole(ADMINISTRATOR, msg.sender);
         _setupRole(CITIZEN, msg.sender);
+    }
+
+    function applyForCitizenshipRole(
+        string memory _emailAddress
+    ) public payable minCitizenshipApplicationFeeCovered {
+        citizenshipApplications[msg.sender] = _emailAddress;
     }
 
     function sendGrantAdministratorRoleApproval(
@@ -107,6 +128,7 @@ contract BVS_Roles is Permissions {
             (adminRoleGrantApprovals[_account] * 1000) / admins.length >
             MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
         ) {
+            adminRoleGrantApprovals[_account]++;
             // also new admin has to automatically send his approvals to the already existing admins
             for (uint i = 0; i < admins.length; i++) {
                 adminApprovalSentToAccount[_account].push(admins[i]);
@@ -118,9 +140,15 @@ contract BVS_Roles is Permissions {
     }
 
     function revokeAdminRoleApproval(
-        address admin,
         address revokedAccount
     ) public onlyRole(ADMINISTRATOR) {
+        _revokeAdminRoleApproval(msg.sender, revokedAccount);
+    }
+
+    function _revokeAdminRoleApproval(
+        address admin,
+        address revokedAccount
+    ) internal {
         for (uint i = 0; i < adminApprovalSentToAccount[admin].length; i++) {
             if (adminApprovalSentToAccount[admin][i] == revokedAccount) {
                 delete adminApprovalSentToAccount[admin][i];
@@ -130,10 +158,14 @@ contract BVS_Roles is Permissions {
                         admins.length <
                     MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10
                 ) {
+                    adminRoleGrantApprovals[revokedAccount]--;
                     _revokeRole(ADMINISTRATOR, revokedAccount);
                     for (uint u = 0; u < admins.length; u++) {
                         if (admins[u] == revokedAccount) {
                             delete admins[u];
+                            admins[u] = admins[admins.length - 1];
+                            admins.pop();
+                            break;
                         }
                     }
                     // make sure all the other admins get revoked their approval receieved from this admin
@@ -142,12 +174,12 @@ contract BVS_Roles is Permissions {
                         k < adminApprovalSentToAccount[revokedAccount].length;
                         k++
                     ) {
-                        revokeAdminRoleApproval(
+                        _revokeAdminRoleApproval(
                             revokedAccount,
-                            adminApprovalSentToAccount[revokedAccount][i]
+                            adminApprovalSentToAccount[revokedAccount][k]
                         );
+                        delete adminApprovalSentToAccount[revokedAccount][k];
                     }
-                    emit adminRoleRevoked(revokedAccount);
                     break;
                 }
             }
@@ -162,11 +194,8 @@ contract BVS_Roles is Permissions {
         onlyRole(ADMINISTRATOR)
         hasRoleToModify(_account, _revokeCitizenRole)
         hasCitizenRoleGrantCredit
+        appliedForCitizenRole(_account)
     {
-        require(
-            !isEmptyString(citizenshipApplications[_account]),
-            "This account not applied for citizenship role"
-        );
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
         dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
         if (!_revokeCitizenRole) {
@@ -181,6 +210,12 @@ contract BVS_Roles is Permissions {
                 }
             }
         }
+    }
+
+    function updateCitizenshipRoleApplicationFee(
+        uint value
+    ) public onlyRole(ADMINISTRATOR) {
+        citizenRoleApplicationFee = value;
     }
 
     function checkIfAccounthasRole(

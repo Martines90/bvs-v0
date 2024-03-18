@@ -2,7 +2,7 @@ import { ethers } from "hardhat"
 import { DECIMALS, INITIAL_PRICE } from "../helper-hardhat-config"
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { BVS_Voting } from "../typechain-types";
+import { BVS_Roles, BVS_Voting } from "../typechain-types";
 
 const bytes32 = require('bytes32');
 
@@ -265,13 +265,20 @@ export const electCandidates = async (admin: BVS_Voting, candidates: SignerWithA
     await admin.closeElections()
 }
 
-export const grantCitizenRoleHelper = async (admin: BVS_Voting, account: SignerWithAddress) => {
+export const grantCitizenRoleHelper = async (admin: BVS_Voting | BVS_Roles, account: SignerWithAddress) => {
     const bvsVotingAccount1 = await admin.connect(account);
     await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
     // move to next day
     await time.increase(TimeQuantities.DAY)
 
     await admin.grantCitizenRole(account, false);
+}
+
+export const applyForCitizenRoleHelper = async (admin: BVS_Voting | BVS_Roles, accounts: SignerWithAddress[]) => {
+    for (let i = 0;i < accounts.length;i++) {
+        const bvsVotingAccount1 = await admin.connect(accounts[i]);
+        await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
+    }
 }
 
 

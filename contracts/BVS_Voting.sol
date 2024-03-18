@@ -36,7 +36,6 @@ contract BVS_Voting is BVS_Roles {
     // globals
 
     uint public firstVotingCycleStartDate;
-    uint public citizenRoleApplicationFee = 10000;
     uint public electionsCandidateApplicationFee = 10000000;
 
     uint public electionsStartDate;
@@ -123,10 +122,12 @@ contract BVS_Voting is BVS_Roles {
     event CitizenshipRoleGranted(address to, address from);
 
     // ERRORS **************************************************************
-    error MinimumApplicationFeeNotCovered();
 
     error VotingAlreadyStarted();
     error VotingCanBeApproved3DaysOrLessBeforeItsStart();
+
+    error CantStartNewVointg10daysOrLessBeforeEndOfCycle();
+    error AccountRanOutOfVotingCreditsForThisVotingCycle();
 
     error ArticleNotExists();
     error ArticleNotRelatedToYourVoting();
@@ -467,13 +468,6 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
-    modifier minCitizenshipApplicationFeeCovered() {
-        if (msg.value < citizenRoleApplicationFee) {
-            revert MinimumApplicationFeeNotCovered();
-        }
-        _;
-    }
-
     modifier minCandidateApplicationFeeCovered() {
         if (msg.value < electionsCandidateApplicationFee) {
             revert MinimumApplicationFeeNotCovered();
@@ -488,17 +482,6 @@ contract BVS_Voting is BVS_Roles {
     }
 
     receive() external payable {}
-
-    /*
-
-    function fund() public payable {
-        require(
-            msg.value > citizenRoleApplicationFee,
-            "Fund amount is below minimum"
-        );
-        funders[msg.sender] += msg.value;
-    }
-    */
 
     function scheduleNextElections(
         uint256 _electionsStartDate,
@@ -570,18 +553,6 @@ contract BVS_Voting is BVS_Roles {
         electionsStartDate = 0;
     }
 
-    function updateCitizenshipRoleApplicationFee(
-        uint value
-    ) public onlyRole(ADMINISTRATOR) {
-        citizenRoleApplicationFee = value;
-    }
-
-    function applyForCitizenshipRole(
-        string memory _emailAddress
-    ) public payable minCitizenshipApplicationFeeCovered {
-        citizenshipApplications[msg.sender] = _emailAddress;
-    }
-
     function unlockVotingBudget(
         bytes32 _votingKey
     )
@@ -593,7 +564,9 @@ contract BVS_Voting is BVS_Roles {
         (bool callSuccess, ) = payable(msg.sender).call{
             value: getVoting(_votingKey).budget
         }("");
-        require(callSuccess, "Call failed");
+        if (!callSuccess) {
+            revert();
+        }
 
         votings[_votingKey].budget = 0; // make sure no more money can be requested
     }
@@ -633,17 +606,19 @@ contract BVS_Voting is BVS_Roles {
         uint timePassed = block.timestamp - firstVotingCycleStartDate;
         uint votingCycleCount = uint(timePassed / VOTING_CYCLE_INTERVAL);
 
-        require(
-            timePassed - votingCycleCount * VOTING_CYCLE_INTERVAL <
-                VOTING_CYCLE_INTERVAL -
-                    NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME,
-            "You can't start new voting 10 days or less before the ongoing voting cycle ends"
-        );
-        require(
-            politicalActorVotingCredits[msg.sender] >
-                votingCycleStartVoteCount[votingCycleCount][msg.sender],
-            "You ran out of start new voting credits in this voting cycle"
-        );
+        if (
+            timePassed - votingCycleCount * VOTING_CYCLE_INTERVAL >
+            VOTING_CYCLE_INTERVAL - NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME
+        ) {
+            revert CantStartNewVointg10daysOrLessBeforeEndOfCycle();
+        }
+
+        if (
+            politicalActorVotingCredits[msg.sender] <=
+            votingCycleStartVoteCount[votingCycleCount][msg.sender]
+        ) {
+            revert AccountRanOutOfVotingCreditsForThisVotingCycle();
+        }
 
         votingCycleStartVoteCount[votingCycleCount][msg.sender]++;
 

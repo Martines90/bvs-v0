@@ -142,8 +142,6 @@ describe("BVS from elections to voting e2e test scenario", () => {
 
        // grant political actor roles to winners
 
-        await bvs.syncElectedPoliticalActors();
-
         assert.equal((await bvsAdmin.getPoliticalActorsSize()), BigInt(3));
 
         assert.equal((await bvsAdmin.politicalActors(0)), accounts[2].address);

@@ -451,9 +451,7 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(FAR_FUTURE_DATE + VOTING_DURATION + TimeQuantities.DAY);
 
-            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.revertedWith(
-                "Call failed"
-            );;
+            await expect(politicalActor.unlockVotingBudget(votingKey)).to.be.reverted;
         })
 
         it("should withdraw money when voting is finished and won", async () => {
@@ -635,8 +633,8 @@ describe("BVS_Voting", () => {
 
             await time.increaseTo(mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL - NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME);
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY, 0)).to.be.revertedWith(
-                "You can't start new voting 10 days or less before the ongoing voting cycle ends"
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + VOTING_CYCLE_INTERVAL + TimeQuantities.DAY, 0)).to.be.revertedWithCustomError(bvsVoting,
+                "CantStartNewVointg10daysOrLessBeforeEndOfCycle"
             );
         })
 
@@ -655,8 +653,9 @@ describe("BVS_Voting", () => {
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(2))
 
-            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY, 0)).to.be.revertedWith(
-                "You ran out of start new voting credits in this voting cycle"
+            await expect(politicalActor.scheduleNewVoting('ipfs-hash', mockFirstVotingCycleStartDate + 22 * TimeQuantities.DAY, 0)).to.be.revertedWithCustomError(
+                bvsVoting,
+                "AccountRanOutOfVotingCreditsForThisVotingCycle"
             );
         })
 
