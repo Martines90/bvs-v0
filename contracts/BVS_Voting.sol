@@ -4,7 +4,6 @@
 pragma solidity ^0.8.9;
 
 import "./BVS_Roles.sol";
-import "./BVS_Helpers.sol";
 
 import "hardhat/console.sol";
 
@@ -107,8 +106,6 @@ contract BVS_Voting is BVS_Roles {
 
     mapping(address => bytes32[]) public articlesCompleted;
     mapping(address => bytes32[]) public articlesResponseCompleted;
-
-    BVS_Helpers public immutable bvsHelpers;
 
     // elections
 
@@ -477,9 +474,7 @@ contract BVS_Voting is BVS_Roles {
 
     // CONTRACT LOGIC *****************************************************************
 
-    constructor() BVS_Roles() {
-        bvsHelpers = new BVS_Helpers();
-    }
+    constructor() BVS_Roles() {}
 
     receive() external payable {}
 
@@ -886,12 +881,47 @@ contract BVS_Voting is BVS_Roles {
             }
         }
 
-        voteScore += bvsHelpers.calculateExtraVotingScore(
-            numOfVoteOnACompletedArticleValue,
-            numOfVoteOnBCompletedArticleValue,
-            numOfVoteOnACompletedResponseValue,
+        uint noPairArticleCompleteCount = 0;
+
+        if (
+            numOfVoteOnACompletedArticleValue >
+            numOfVoteOnBCompletedArticleValue
+        ) {
+            noPairArticleCompleteCount = (numOfVoteOnACompletedArticleValue -
+                numOfVoteOnBCompletedArticleValue);
+        } else {
+            noPairArticleCompleteCount = (numOfVoteOnBCompletedArticleValue -
+                numOfVoteOnACompletedArticleValue);
+        }
+
+        voteScore +=
+            ((numOfVoteOnACompletedArticleValue +
+                numOfVoteOnBCompletedArticleValue -
+                noPairArticleCompleteCount) / 2) *
+            25 +
+            (noPairArticleCompleteCount * 5);
+
+        // add the balanced way calculated scores after completed responses
+        uint noPairResponseCompleteCount = 0;
+
+        if (
+            numOfVoteOnACompletedResponseValue >
             numOfVoteOnBCompletedResponseValue
-        );
+        ) {
+            noPairResponseCompleteCount = (numOfVoteOnACompletedResponseValue -
+                numOfVoteOnBCompletedResponseValue);
+        } else {
+            noPairResponseCompleteCount = (numOfVoteOnBCompletedResponseValue -
+                numOfVoteOnACompletedResponseValue);
+        }
+
+        voteScore +=
+            ((numOfVoteOnACompletedResponseValue +
+                numOfVoteOnBCompletedResponseValue -
+                noPairResponseCompleteCount) / 2) *
+            10 +
+            (noPairResponseCompleteCount * 2);
+
         return voteScore;
     }
 
