@@ -70,7 +70,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 bvsVotingAccount1.scheduleNextElections(mockNextElectionsConfig.electionsStartDate, mockNextElectionsConfig.electionsEndDate)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         })
 
         it("should schedule new elections when Account has ADMINISTRATOR role and there is no ongoing elections and input params are correct", async () => {
@@ -128,7 +128,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 bvsVotingAccount1.applyForElections()
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
         })
 
         it('should revert when there is no ongoing elections', async () => {
@@ -190,7 +190,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 bvsVotingAccount1.voteOnElections(accounts[1].address)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
         })
 
         it('should revert when elections not yet started', async () => {
@@ -268,7 +268,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 bvsVotingAccount1.closeElections()
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
         it("should revert when elections are already closed", async () => {
@@ -408,7 +408,7 @@ describe("BVS_Voting", () => {
         })
         it("should forbid to unlock voting budget money for non POLITICAL_ACTOR account", async () => {
             const citizen1 = await admin.connect(accounts[3]);
-            await expect(citizen1.unlockVotingBudget(votingKey)).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[3].address, Roles.POLITICAL_ACTOR));;
+            await expect(citizen1.unlockVotingBudget(votingKey)).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[3].address, Roles.POLITICAL_ACTOR));;
         })
 
         it("should forbid to unlock voting budget money when voting did not get enough votes", async () => {
@@ -496,7 +496,7 @@ describe("BVS_Voting", () => {
         it("should revert if user has no ADMINISTRATOR role", async () => {
             const bvsAccount5 = await admin.connect(accounts[5])
 
-            await expect(bvsAccount5.sendGrantAdministratorRoleApproval(accounts[5])).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
+            await expect(bvsAccount5.sendGrantAdministratorRoleApproval(accounts[5])).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[5].address, Roles.ADMINISTRATOR));;
         })
 
         it("should grant admin role", async () => {
@@ -536,7 +536,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 bvsVotingAccount1.setFirstVotingCycleStartDate(firstVotingCycleStartDate)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when passed date is before now', async () => {
@@ -594,7 +594,7 @@ describe("BVS_Voting", () => {
                     NOW,
                     0
                 )
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when actual date is before first voting cycle start date', async () => {
@@ -736,7 +736,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.assignQuizIpfsHashToVoting(votingKey, 'quiz-ipfs-hash')
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when voting not exists', async () => {
@@ -781,7 +781,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.addKeccak256HashedAnswersToVotingContent(votingKey, [bytes32({ input: 'hashed-answer'})])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when voting content check quiz ipfs not yet assigned', async () => {
@@ -847,7 +847,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.approveVoting(votingKey)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when voting start date already passed', async () => {
@@ -955,7 +955,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.publishProConArticle(votingKey, 'ipfs-hash', true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when account has no more publish credit related to a specific voting', async () => {
@@ -1022,7 +1022,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.assignQuizIpfsHashToArticleOrResponse(votingKey, articleKey, 'quiz-ipfs-hash', true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article not exists', async () => {
@@ -1074,7 +1074,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.addKeccak256HashedAnswersToArticle(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article has no assigned content check quiz yet', async () => {
@@ -1138,7 +1138,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.publishProConArticleResponse(votingKey, articleKey, 'response-ipfs-hash')
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[10].address, Roles.POLITICAL_ACTOR));
         })
 
         it('should revert when voting already started', async () => {
@@ -1203,7 +1203,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.addKeccak256HashedAnswersToArticleResponse(votingKey, articleKey, [bytes32({ input: 'hashed-answer'})])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[2].address, Roles.ADMINISTRATOR));
         })
 
         it('should revert when article not exists', async () => {
@@ -1433,7 +1433,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.completeContentReadQuiz(1, votingKey, bytes32(""), [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[27].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[27].address, Roles.CITIZEN));
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
@@ -1502,7 +1502,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.completeContentReadQuiz(2, votingKey, articleKey, [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[23].address, Roles.CITIZEN));
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
@@ -1568,7 +1568,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account2.completeContentReadQuiz(3, votingKey, articleKey, [])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[24].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[24].address, Roles.CITIZEN));
         })
 
         it('should revert when any of the provided answers are wrong', async () => {
@@ -1624,7 +1624,7 @@ describe("BVS_Voting", () => {
 
             await expect(
                 account.voteOnVoting(votingKey, true)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[25].address, Roles.CITIZEN));
+            ).to.be.revertedWithCustomError(bvsVoting, getPermissionDenyReasonMessage(accounts[25].address, Roles.CITIZEN));
         })
 
         it('should revert when voting already started', async () => {

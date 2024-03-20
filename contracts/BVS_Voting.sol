@@ -5,8 +5,6 @@ pragma solidity ^0.8.9;
 
 import "./BVS_Roles.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title Balanced Voting System: Voting contract
  * @author Márton Sándor Horváth, email: hmartonsandor{@}gmail.com
@@ -618,11 +616,7 @@ contract BVS_Voting is BVS_Roles {
         votingCycleStartVoteCount[votingCycleCount][msg.sender]++;
 
         bytes32 _votingKey = keccak256(
-            abi.encodePacked(
-                Strings.toString(block.timestamp),
-                msg.sender,
-                _contentIpfsHash
-            )
+            abi.encodePacked(block.timestamp, msg.sender, _contentIpfsHash)
         );
 
         votings[_votingKey].budget = _budget;
@@ -692,11 +686,7 @@ contract BVS_Voting is BVS_Roles {
         hasCreditsLeftToPublishArticle(_votingKey)
     {
         bytes32 articleKey = keccak256(
-            abi.encodePacked(
-                Strings.toString(block.timestamp),
-                msg.sender,
-                _ipfsHash
-            )
+            abi.encodePacked(block.timestamp, msg.sender, _ipfsHash)
         );
 
         proConArticles[_votingKey][articleKey] = ProConArticle(

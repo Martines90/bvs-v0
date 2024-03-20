@@ -3,9 +3,6 @@
 // pragma
 pragma solidity ^0.8.9;
 
-// imports
-import "@thirdweb-dev/contracts/extension/Permissions.sol";
-
 /**
  * @title Balanced Voting System:Roles - contract
  * @author Márton Sándor Horváth, email: hmartonsandor{@}gmail.com
@@ -13,7 +10,7 @@ import "@thirdweb-dev/contracts/extension/Permissions.sol";
  * @dev
  */
 
-contract BVS_Roles is Permissions {
+contract BVS_Roles {
     uint public constant MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED = 50;
     uint public constant MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE = 10;
 
@@ -38,6 +35,14 @@ contract BVS_Roles is Permissions {
 
     mapping(address => string) public citizenshipApplications;
 
+    mapping(bytes32 => mapping(address => bool)) private _hasRole;
+
+    // Events
+
+    event RoleGranted(bytes32 role, address account, address executer);
+
+    event RoleRevoked(bytes32 role, address account, address executer);
+
     // Errors
     error CitizenRoleAlreadyGranted();
     error CitizenRoleAlreadyRevokedOrNotGranted();
@@ -46,6 +51,13 @@ contract BVS_Roles is Permissions {
     error AdminRoleGrantApprovalAlreadySent();
 
     error MinimumApplicationFeeNotCovered();
+
+    error PermissionsUnauthorizedAccount(address account, bytes32 role);
+
+    modifier onlyRole(bytes32 role) {
+        _checkRole(role, msg.sender);
+        _;
+    }
 
     modifier minCitizenshipApplicationFeeCovered() {
         if (msg.value < citizenRoleApplicationFee) {
@@ -109,6 +121,28 @@ contract BVS_Roles is Permissions {
         creationDate = block.timestamp;
         _setupRole(ADMINISTRATOR, msg.sender);
         _setupRole(CITIZEN, msg.sender);
+    }
+
+    function _setupRole(bytes32 role, address account) internal virtual {
+        _hasRole[role][account] = true;
+        emit RoleGranted(role, account, msg.sender);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal virtual {
+        _checkRole(role, account);
+        delete _hasRole[role][account];
+        emit RoleRevoked(role, account, msg.sender);
+    }
+
+    /// @dev Checks `role` for `account`. Reverts with a message including the required role.
+    function _checkRole(bytes32 role, address account) internal view virtual {
+        if (!_hasRole[role][account]) {
+            revert PermissionsUnauthorizedAccount(account, role);
+        }
+    }
+
+    function hasRole(bytes32 role, address account) public view returns (bool) {
+        return _hasRole[role][account];
     }
 
     function applyForCitizenshipRole(

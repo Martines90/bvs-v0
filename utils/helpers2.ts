@@ -78,8 +78,9 @@ export const mockHashedAnwers = [
 ]
 
 export const getPermissionDenyReasonMessage = (accountAddress: string, roleKeccak256: string): string => {
-    const account = `0x${BigInt(accountAddress).toString(16)}`;
-    return `Permissions: account ${account} is missing role ${roleKeccak256}`;
+    // const account = `0x${BigInt(accountAddress).toString(16)}`;
+    // return `Permissions: account ${account} is missing role ${roleKeccak256}`;
+    return `PermissionsUnauthorizedAccount`;
 }
 
 
