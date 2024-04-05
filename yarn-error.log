@@ -1,30 +1,30 @@
 Arguments: 
-  /Users/horvathmarton/.nvm/versions/node/v18.18.0/bin/node /usr/local/bin/yarn add @types/bytes32
+  /Users/martonhorvath/.nvm/versions/node/v16.20.0/bin/node /Users/martonhorvath/.nvm/versions/node/v16.20.0/bin/yarn add bytes64
 
 PATH: 
-  /Users/horvathmarton/.nvm/versions/node/v18.18.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/horvathmarton/miniconda3/bin:/Users/horvathmarton/miniconda3/condabin:/Users/horvathmarton/.nvm/versions/node/v18.18.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin
+  /Users/martonhorvath/.nvm/versions/node/v16.20.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/share/dotnet:~/.dotnet/tools:/Users/martonhorvath/miniconda3/bin:/Users/martonhorvath/miniconda3/condabin:/Users/martonhorvath/.nvm/versions/node/v16.20.0/bin:/opt/homebrew/bin
 
 Yarn version: 
   1.22.19
 
 Node version: 
-  18.18.0
+  16.20.0
 
 Platform: 
   darwin arm64
 
 Trace: 
-  Error: https://registry.yarnpkg.com/@types%2fbytes32: Not found
-      at params.callback [as _callback] (/usr/local/lib/node_modules/yarn/lib/cli.js:66145:18)
-      at self.callback (/usr/local/lib/node_modules/yarn/lib/cli.js:140890:22)
-      at Request.emit (node:events:517:28)
-      at Request.<anonymous> (/usr/local/lib/node_modules/yarn/lib/cli.js:141862:10)
-      at Request.emit (node:events:517:28)
-      at IncomingMessage.<anonymous> (/usr/local/lib/node_modules/yarn/lib/cli.js:141784:12)
-      at Object.onceWrapper (node:events:631:28)
-      at IncomingMessage.emit (node:events:529:35)
-      at endReadableNT (node:internal/streams/readable:1368:12)
-      at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+  Error: https://registry.yarnpkg.com/bytes64: Not found
+      at Request.params.callback [as _callback] (/Users/martonhorvath/.nvm/versions/node/v16.20.0/lib/node_modules/yarn/lib/cli.js:66145:18)
+      at Request.self.callback (/Users/martonhorvath/.nvm/versions/node/v16.20.0/lib/node_modules/yarn/lib/cli.js:140890:22)
+      at Request.emit (node:events:513:28)
+      at Request.<anonymous> (/Users/martonhorvath/.nvm/versions/node/v16.20.0/lib/node_modules/yarn/lib/cli.js:141862:10)
+      at Request.emit (node:events:513:28)
+      at IncomingMessage.<anonymous> (/Users/martonhorvath/.nvm/versions/node/v16.20.0/lib/node_modules/yarn/lib/cli.js:141784:12)
+      at Object.onceWrapper (node:events:627:28)
+      at IncomingMessage.emit (node:events:525:35)
+      at endReadableNT (node:internal/streams/readable:1358:12)
+      at processTicksAndRejections (node:internal/process/task_queues:83:21)
 
 npm manifest: 
   {
@@ -47,6 +47,7 @@ npm manifest:
       "dotenv": "^16.4.1",
       "ethers": "^6.10.0",
       "hardhat": "^2.19.4",
+      "hardhat-contract-sizer": "^2.10.0",
       "hardhat-deploy": "^0.11.45",
       "hardhat-gas-reporter": "^1.0.8",
       "keccak256": "^1.0.6",
@@ -148,6 +149,11 @@ Lockfile:
       "@chainsafe/as-sha256" "^0.3.1"
       "@chainsafe/persistent-merkle-tree" "^0.4.2"
       case "^1.6.3"
+  
+  "@colors/colors@1.5.0":
+    version "1.5.0"
+    resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
+    integrity sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==
   
   "@cspotcode/source-map-support@^0.8.0":
     version "0.8.1"
@@ -1718,7 +1724,7 @@ Lockfile:
       escape-string-regexp "^1.0.5"
       supports-color "^5.3.0"
   
-  chalk@^4.1.0, chalk@^4.1.2:
+  chalk@^4.0.0, chalk@^4.1.0, chalk@^4.1.2:
     version "4.1.2"
     resolved "https://registry.yarnpkg.com/chalk/-/chalk-4.1.2.tgz#aac4e2b7734a740867aeb16bf02aad556a1e7a01"
     integrity sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==
@@ -1791,6 +1797,15 @@ Lockfile:
       string-width "^2.1.1"
     optionalDependencies:
       colors "^1.1.2"
+  
+  cli-table3@^0.6.0:
+    version "0.6.3"
+    resolved "https://registry.yarnpkg.com/cli-table3/-/cli-table3-0.6.3.tgz#61ab765aac156b52f222954ffc607a6f01dbeeb2"
+    integrity sha512-w5Jac5SykAeZJKntOxJCrm63Eg5/4dhMWIcuTbo9rpE+brgaSZo0RuNJZeOyMgsUdhDeojvgyQLmjI+K50ZGyg==
+    dependencies:
+      string-width "^4.2.0"
+    optionalDependencies:
+      "@colors/colors" "1.5.0"
   
   cliui@^7.0.2:
     version "7.0.4"
@@ -2692,6 +2707,15 @@ Lockfile:
       wordwrap "^1.0.0"
     optionalDependencies:
       uglify-js "^3.1.4"
+  
+  hardhat-contract-sizer@^2.10.0:
+    version "2.10.0"
+    resolved "https://registry.yarnpkg.com/hardhat-contract-sizer/-/hardhat-contract-sizer-2.10.0.tgz#72646f43bfe50e9a5702c9720c9bc3e77d93a2c9"
+    integrity sha512-QiinUgBD5MqJZJh1hl1jc9dNnpJg7eE/w4/4GEnrcmZJJTDbVFNe3+/3Ep24XqISSkYxRz36czcPHKHd/a0dwA==
+    dependencies:
+      chalk "^4.0.0"
+      cli-table3 "^0.6.0"
+      strip-ansi "^6.0.0"
   
   hardhat-deploy@^0.11.45:
     version "0.11.45"

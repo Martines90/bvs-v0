@@ -4,6 +4,9 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { BVS_Roles, BVS_Voting } from "../typechain-types";
 
+import { keccak256 } from 'js-sha3';
+import { solidityPacked, solidityPackedKeccak256, toUtf8Bytes, zeroPadValue } from "ethers";
+
 const bytes32 = require('bytes32');
 
 const hourInMilSec = 60 * 60;
@@ -268,17 +271,19 @@ export const electCandidates = async (admin: BVS_Voting, candidates: SignerWithA
 
 export const grantCitizenRoleHelper = async (admin: BVS_Voting | BVS_Roles, account: SignerWithAddress) => {
     const bvsVotingAccount1 = await admin.connect(account);
-    await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
+    const emailWalletAddressHash = getAccountCitizenshipApplicationHash(account);
+    await bvsVotingAccount1.applyForCitizenshipRole(emailWalletAddressHash,  { value: sendValuesInEth.small});
     // move to next day
     await time.increase(TimeQuantities.DAY)
 
-    await admin.grantCitizenRole(account, false);
+    await admin.grantCitizenRole(account, emailWalletAddressHash, false);
 }
 
 export const applyForCitizenRoleHelper = async (admin: BVS_Voting | BVS_Roles, accounts: SignerWithAddress[]) => {
     for (let i = 0;i < accounts.length;i++) {
         const bvsVotingAccount1 = await admin.connect(accounts[i]);
-        await bvsVotingAccount1.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
+        const emailWalletAddressHash = getAccountCitizenshipApplicationHash(accounts[i]);
+        await bvsVotingAccount1.applyForCitizenshipRole(emailWalletAddressHash,  { value: sendValuesInEth.small});
     }
 }
 
@@ -313,3 +318,5 @@ export const getPayableContractInteractionReport = async (admin: BVS_Voting, acc
         gasCost
     }
 }
+
+export const getAccountCitizenshipApplicationHash = (account: SignerWithAddress) => bytes32({input: keccak256("test@email.com" + account.address).slice(0,31)});

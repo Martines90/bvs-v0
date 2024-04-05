@@ -4,12 +4,12 @@ import { BVS_Roles } from '../../typechain-types';
 import { assert, expect } from 'chai';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
-import { FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, getPermissionDenyReasonMessage } from '../../utils/helpers';
-
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 import * as helpers from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { applyForCitizenRoleHelper, grantCitizenRoleHelper, sendValuesInEth } from '../../utils/helpers2';
+import {  FAR_FUTURE_DATE, NOW, Roles, TimeQuantities, getPermissionDenyReasonMessage, applyForCitizenRoleHelper, sendValuesInEth, getAccountCitizenshipApplicationHash } from '../../utils/helpers2';
+
+import { keccak256 } from 'js-sha3';
 
 describe("BVS_Roles", () => {
     let bvsRoles: BVS_Roles;
@@ -53,7 +53,7 @@ describe("BVS_Roles", () => {
 
             await expect(
                 bvsRolesAccount1.sendGrantAdministratorRoleApproval(accounts[2])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsRoles, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
         it("should not revert when account has ADMINISTRATOR role", async () => {
@@ -118,7 +118,7 @@ describe("BVS_Roles", () => {
 
             await expect(
                 bvsRolesAccount1.revokeAdminRoleApproval(accounts[2])
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+            ).to.be.revertedWithCustomError(bvsRoles, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
         it("should revoke admin role", async () => {
@@ -148,16 +148,19 @@ describe("BVS_Roles", () => {
 
         it("should revert when account don't have ADMINISTRATOR role", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[1]);
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
 
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
-            ).to.be.revertedWith(getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
+                bvsRolesAccount1.grantCitizenRole(accounts[2], hash, false)
+            ).to.be.revertedWithCustomError(bvsRoles, getPermissionDenyReasonMessage(accounts[1].address, Roles.ADMINISTRATOR));
         });
 
         it("should revert when citizen not applied for citizen role", async () => {
             const bvsRolesAccount1 = await bvsRoles.connect(accounts[0]);
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], false)).to.be.revertedWithCustomError(bvsRoles, 'NotAppliedForCitizenRole');
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
+
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2],hash, false)).to.be.revertedWithCustomError(bvsRoles, 'NotAppliedForCitizenRole');
         });
 
         it("should revert when citizen role already granted", async () => {
@@ -165,11 +168,12 @@ describe("BVS_Roles", () => {
 
             const citizen2 = await bvsRoles.connect(accounts[2]);
 
-            await citizen2.applyForCitizenshipRole('test@email.com',  { value: sendValuesInEth.small});
+            const emailWalletAddressHash = getAccountCitizenshipApplicationHash(accounts[2]);
+            await citizen2.applyForCitizenshipRole(emailWalletAddressHash,  { value: sendValuesInEth.small});
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], emailWalletAddressHash, false)
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], false)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], emailWalletAddressHash, false)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyGranted');
         });
 
         it("should revert when account ran out of grant citizen role credits for the day", async () => {
@@ -177,9 +181,13 @@ describe("BVS_Roles", () => {
             
             await applyForCitizenRoleHelper(bvsRoles, [accounts[2], accounts[3]]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[3], false)).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], hash, false)
+
+            const hash2 = getAccountCitizenshipApplicationHash(accounts[3]);
+
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[3], hash2, false)).to.be.revertedWithCustomError(bvsRoles, 'RunOutOfDailyCitizenRoleGrantCredit');
         });
 
         it("should grant citizen role", async () => {
@@ -187,8 +195,10 @@ describe("BVS_Roles", () => {
 
             await applyForCitizenRoleHelper(bvsRoles, [accounts[2]]);
 
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
+
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+                bvsRolesAccount1.grantCitizenRole(accounts[2], hash, false)
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(2));
@@ -199,12 +209,16 @@ describe("BVS_Roles", () => {
 
             await applyForCitizenRoleHelper(bvsRoles, [accounts[2], accounts[3]]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
+
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], hash, false)
 
             await time.increaseTo(NOW + TimeQuantities.DAY)
 
+            const hash2 = getAccountCitizenshipApplicationHash(accounts[3]);
+
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[3], false)
+                bvsRolesAccount1.grantCitizenRole(accounts[3], hash2, false)
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount0.getCitizensSize()), BigInt(3));
@@ -215,7 +229,9 @@ describe("BVS_Roles", () => {
 
             await applyForCitizenRoleHelper(bvsRoles, [accounts[2]]);
 
-            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], true)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyRevokedOrNotGranted');
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
+
+            await expect(bvsRolesAccount1.grantCitizenRole(accounts[2], hash, true)).to.be.revertedWithCustomError(bvsRoles, 'CitizenRoleAlreadyRevokedOrNotGranted');
         });
 
         it("should revoke citizen role", async () => {
@@ -223,14 +239,16 @@ describe("BVS_Roles", () => {
 
             await applyForCitizenRoleHelper(bvsRoles, [accounts[2]]);
 
-            await bvsRolesAccount1.grantCitizenRole(accounts[2], false)
+            const hash = getAccountCitizenshipApplicationHash(accounts[2]);
+
+            await bvsRolesAccount1.grantCitizenRole(accounts[2], hash, false)
 
             assert.equal((await bvsRolesAccount1.hasRole(Roles.CITIZEN, accounts[2])), true);
 
-            await time.increaseTo(NOW + TimeQuantities.DAY)
+            await time.increaseTo(NOW + TimeQuantities.DAY + TimeQuantities.HOUR)
 
             await expect(
-                bvsRolesAccount1.grantCitizenRole(accounts[2], true)
+                bvsRolesAccount1.grantCitizenRole(accounts[2], hash, true)
             ).not.to.be.reverted
 
             assert.equal((await bvsRolesAccount1.hasRole(Roles.CITIZEN, accounts[2])), false);

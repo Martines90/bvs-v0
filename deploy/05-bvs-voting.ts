@@ -41,13 +41,6 @@ const bvsVoting = async function (hre: HardhatRuntimeEnvironment) {
     ) {
       await verify(bvsVoting.address, [])
     }
-  /*if (
-    !developmentChains.includes(network.name) &&
-    process.env.ETHERSCAN_API_KEY
-  ) {
-    await verify(bvsVoting.address, [ethUsdPriceFeedAddress])
-  }*/
-
 }
 
 export default bvsVoting

@@ -33,7 +33,7 @@ contract BVS_Roles {
     mapping(address => mapping(uint => uint))
         public dailyCitizenRoleModifyCredit;
 
-    mapping(address => string) public citizenshipApplications;
+    mapping(address => bytes32) public citizenshipApplications;
 
     mapping(bytes32 => mapping(address => bool)) private _hasRole;
 
@@ -66,8 +66,8 @@ contract BVS_Roles {
         _;
     }
 
-    modifier appliedForCitizenRole(address _account) {
-        if (isEmptyString(citizenshipApplications[_account])) {
+    modifier appliedForCitizenRole(address _account, bytes32 _emailPublicKeyHash, bool _revokeCitizenRole) {
+        if (citizenshipApplications[_account] != _emailPublicKeyHash && !_revokeCitizenRole) {
             revert NotAppliedForCitizenRole();
         }
         _;
@@ -146,9 +146,9 @@ contract BVS_Roles {
     }
 
     function applyForCitizenshipRole(
-        string memory _emailAddress
+        bytes32 _emailPublicKeyCombinedHash
     ) public payable minCitizenshipApplicationFeeCovered {
-        citizenshipApplications[msg.sender] = _emailAddress;
+        citizenshipApplications[msg.sender] = _emailPublicKeyCombinedHash;
     }
 
     function sendGrantAdministratorRoleApproval(
@@ -222,21 +222,26 @@ contract BVS_Roles {
 
     function grantCitizenRole(
         address _account,
+        bytes32 _emailPublicKeyHash,
         bool _revokeCitizenRole
     )
         public
         onlyRole(ADMINISTRATOR)
         hasRoleToModify(_account, _revokeCitizenRole)
         hasCitizenRoleGrantCredit
-        appliedForCitizenRole(_account)
+        appliedForCitizenRole(_account, _emailPublicKeyHash, _revokeCitizenRole)
     {
         uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;
         dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;
         if (!_revokeCitizenRole) {
             _setupRole(CITIZEN, _account);
             citizens.push(_account);
+            delete citizenshipApplications[_account];
         } else {
-            _revokeRole(CITIZEN, _account);
+            if (hasRole(CITIZEN, _account)) {
+                _revokeRole(CITIZEN, _account);
+            }
+            delete citizenshipApplications[_account];
             for (uint i; i < citizens.length; i++) {
                 if (citizens[i] == _account) {
                     delete citizens[i];

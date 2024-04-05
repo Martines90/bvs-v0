@@ -259,8 +259,6 @@ describe("BVS_Voting", () => {
     describe("_closeElections", () => {
         beforeEach(async () => {
             await callScheduleNextElections(admin);
-
-            //await time.increaseTo();
         })
 
         it("should revert when account don't have ADMINISTRATOR role", async () => {
