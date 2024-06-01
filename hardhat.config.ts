@@ -35,7 +35,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       accounts: {
-        count: 200,
+        count: 50,
       },
     },
     sepolia: {

@@ -82,6 +82,7 @@ run: yarn run hardhat size-contracts
 ```shell
 npx hardhat help
 npx hardhat test
+npx hardhat test --grep "test desc/it name"
 REPORT_GAS=true npx hardhat test
 npx hardhat node
 npx hardhat run scripts/deploy.ts

@@ -23,9 +23,7 @@ contract BVS_Voting is BVS_Roles {
     uint public constant NEW_VOTING_PERIOD_MIN_SCHEDULE_AHEAD_TIME = 10 days;
 
     uint public constant MIN_TOTAL_CONTENT_READ_CHECK_ANSWER = 10;
-    uint public constant VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
-    uint public constant ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
-    uint public constant ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+    uint public constant CONTENT_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
     uint public constant MIN_VOTE_SCORE = 5;
     uint public constant MIN_PERCENTAGE_OF_VOTES = 10;
@@ -33,7 +31,7 @@ contract BVS_Voting is BVS_Roles {
     // globals
 
     uint public firstVotingCycleStartDate;
-    uint public electionsCandidateApplicationFee = 10000000;
+    uint public electionsCandidateApplicationFee = 1 ether / 10;
 
     uint public electionsStartDate;
     uint public electionsEndDate;
@@ -64,6 +62,7 @@ contract BVS_Voting is BVS_Roles {
         uint voteOnAScore;
         uint voteOnBScore;
         string votingContentCheckQuizIpfsHash;
+        uint actualNumberOfCitizens;
     }
 
     struct Vote {
@@ -71,7 +70,7 @@ contract BVS_Voting is BVS_Roles {
         bool isContentCompleted;
     }
 
-    // mapping(address => uint) public funders;
+    mapping(string => string) public contactEmails;
 
     // article content check answers
     mapping(bytes32 => bytes32[]) public articleContentReadCheckAnswers; // article key => answers
@@ -165,7 +164,7 @@ contract BVS_Voting is BVS_Roles {
     error AccountAlreadyVoted();
 
     error ElectionsAlreadyClosedOrNotYetScheduled();
-    error ElectionsCanOnlyClose7DaysAfterTheirEndDate();
+    error ElectionsCanOnlyCloseAfterItsEndDate();
 
     modifier criticisedArticleRelatedToYourVoting(
         bytes32 _votingKey,
@@ -234,7 +233,8 @@ contract BVS_Voting is BVS_Roles {
 
     modifier enoughVotesArrived(bytes32 _votingKey) {
         if (
-            (votings[_votingKey].voteCount * 100) / citizens.length <
+            (votings[_votingKey].voteCount * 100) /
+                votings[_votingKey].actualNumberOfCitizens <
             MIN_PERCENTAGE_OF_VOTES
         ) {
             revert NoEnoughVotesReceived();
@@ -457,8 +457,8 @@ contract BVS_Voting is BVS_Roles {
     modifier canCloseElections() {
         if (electionsStartDate == 0) {
             revert ElectionsAlreadyClosedOrNotYetScheduled();
-        } else if (electionsEndDate + 7 days > block.timestamp) {
-            revert ElectionsCanOnlyClose7DaysAfterTheirEndDate();
+        } else if (electionsEndDate > block.timestamp) {
+            revert ElectionsCanOnlyCloseAfterItsEndDate();
         }
         _;
     }
@@ -475,6 +475,29 @@ contract BVS_Voting is BVS_Roles {
     constructor() BVS_Roles() {}
 
     receive() external payable {}
+
+    function getBlockTime() public view returns (uint256) {
+        return block.timestamp;
+    }
+
+    function addUpdateContactEmail(
+        string memory emailKey,
+        string memory emailAddress
+    ) public onlyRole(ADMINISTRATOR) {
+        contactEmails[emailKey] = emailAddress;
+    }
+
+    function updateCitizenshipApplicationFee(
+        uint _newCitizenshipApplicationFee
+    ) public onlyRole(ADMINISTRATOR) {
+        citizenRoleApplicationFee = _newCitizenshipApplicationFee;
+    }
+
+    function updateElectionsApplicationFee(
+        uint _newElectionsApplicationFee
+    ) public onlyRole(ADMINISTRATOR) {
+        electionsCandidateApplicationFee = _newElectionsApplicationFee;
+    }
 
     function scheduleNextElections(
         uint256 _electionsStartDate,
@@ -626,6 +649,7 @@ contract BVS_Voting is BVS_Roles {
         votings[_votingKey].startDate = _startDate;
         votings[_votingKey].voteOnAScore = 0;
         votings[_votingKey].voteOnBScore = 0;
+        votings[_votingKey].actualNumberOfCitizens = citizens.length;
 
         bool votingCycleIndexAlreadyAdded = false;
         for (uint i = 0; i < votingCycleIndexes.length; i++) {
@@ -950,7 +974,7 @@ contract BVS_Voting is BVS_Roles {
                 votings[_votingKey].contentIpfsHash,
                 votings[_votingKey].startDate,
                 votingContentReadCheckAnswers[_votingKey].length,
-                VOTING_CHECK_ASKED_NUM_OF_QUESTIONS,
+                CONTENT_CHECK_ASKED_NUM_OF_QUESTIONS,
                 _account
             );
     }
@@ -967,7 +991,7 @@ contract BVS_Voting is BVS_Roles {
                 proConArticles[_votingKey][_articleKey].articleIpfsHash,
                 votings[_votingKey].startDate,
                 articleContentReadCheckAnswers[_articleKey].length,
-                ARTICLE_CHECK_ASKED_NUM_OF_QUESTIONS,
+                CONTENT_CHECK_ASKED_NUM_OF_QUESTIONS,
                 _account
             );
     }
@@ -985,7 +1009,7 @@ contract BVS_Voting is BVS_Roles {
                     .responseStatementIpfsHash,
                 votings[_votingKey].startDate,
                 articleContentResponseReadCheckAnswers[_articleKey].length,
-                ARTICLE_RESPONSE_CHECK_ASKED_NUM_OF_QUESTIONS,
+                CONTENT_CHECK_ASKED_NUM_OF_QUESTIONS,
                 _account
             );
     }
@@ -1078,6 +1102,20 @@ contract BVS_Voting is BVS_Roles {
 
     function getVoting(bytes32 _votingKey) public view returns (Voting memory) {
         return votings[_votingKey];
+    }
+
+    function getContentReadCheckAnswersLength(
+        bytes32 key,
+        uint contentType
+    ) public view returns (uint) {
+        // voting
+        if (contentType == 1) {
+            return votingContentReadCheckAnswers[key].length;
+        } else if (contentType == 2) {
+            return articleContentReadCheckAnswers[key].length;
+        } else {
+            return articleContentResponseReadCheckAnswers[key].length;
+        }
     }
 
     function getVotingKeysLength() public view returns (uint) {

@@ -45,7 +45,7 @@ export enum TimeQuantities {
 
 export const FAR_FUTURE_DATE = 2524687964; // GMT: 2050. January 1., Saturday 22:12:44
 
-const VOTING_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
+const CONTENT_CHECK_ASKED_NUM_OF_QUESTIONS = 5;
 
 export const startTime = FAR_FUTURE_DATE - TimeQuantities.YEAR;
 
@@ -237,11 +237,11 @@ export const callScheduleNextElections = (connectedAccount: BVS_Voting, mockInpu
 
 export const applyCandidatesForElections = async (admin: BVS_Voting, candidates: SignerWithAddress[]) => {
 
-    const electionsApplicationFee = Number(await admin.electionsCandidateApplicationFee());
+    const electionsApplicationFee = BigInt(await admin.electionsCandidateApplicationFee());
 
     for (let i = 0;i < candidates.length;i++) {
         const candidate = await admin.connect(candidates[i]);
-        await candidate.applyForElections({ value: electionsApplicationFee * 1.1});
+        await candidate.applyForElections({ value: (electionsApplicationFee * BigInt(110)) / BigInt(100)});
     }
 }
 
@@ -268,7 +268,8 @@ export const electCandidates = async (admin: BVS_Voting, candidates: SignerWithA
 
     await admin.closeElections()
 }
-
+1716279526
+1716242400
 export const grantCitizenRoleHelper = async (admin: BVS_Voting | BVS_Roles, account: SignerWithAddress) => {
     const bvsVotingAccount1 = await admin.connect(account);
     const emailWalletAddressHash = getAccountCitizenshipApplicationHash(account);

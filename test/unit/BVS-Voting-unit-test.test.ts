@@ -31,7 +31,8 @@ describe("BVS_Voting", () => {
     let MIN_VOTE_SCORE: number;
 
     let citizenRoleApplicationFee: number;
-    let electionsApplicationFee: number;
+    let electionsApplicationFee: bigint;
+    let payedApplicationFee: bigint;
 
     beforeEach(async () => {
         accounts = await ethers.getSigners()
@@ -50,7 +51,9 @@ describe("BVS_Voting", () => {
         MIN_VOTE_SCORE = Number(await bvsVoting.MIN_VOTE_SCORE());
 
         citizenRoleApplicationFee = Number(await bvsVoting.citizenRoleApplicationFee());
-        electionsApplicationFee = Number(await bvsVoting.electionsCandidateApplicationFee());
+        electionsApplicationFee = BigInt(await bvsVoting.electionsCandidateApplicationFee()) as bigint;
+
+        payedApplicationFee = (electionsApplicationFee * BigInt(110)) / BigInt(100);
 
         const amount =  BigInt(citizenRoleApplicationFee * 1.5);
 
@@ -133,7 +136,7 @@ describe("BVS_Voting", () => {
 
         it('should revert when there is no ongoing elections', async () => {
             await expect(
-                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+                bvsVotingAccount1.applyForElections({ value: (electionsApplicationFee * BigInt(110)) / BigInt(100)})
             ).to.be.revertedWithCustomError(bvsVoting, 'ElectionsNotScheduledOrAlreadyStarted');
         })
 
@@ -143,17 +146,17 @@ describe("BVS_Voting", () => {
             await time.increaseTo(mockNextElectionsConfig.electionsStartDate);
 
             await expect(
-                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+                bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
             ).to.be.revertedWithCustomError(bvsVoting, 'ElectionsNotScheduledOrAlreadyStarted');
         })
 
         it('should revert when candidate already registered', async () => {
             await callScheduleNextElections(admin);
 
-            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            await bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
 
             await expect(
-                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+                bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
             ).to.be.revertedWithCustomError(bvsVoting, 'AccountAlreadyAppliedForElections');
         })
 
@@ -161,7 +164,7 @@ describe("BVS_Voting", () => {
             await callScheduleNextElections(admin);
 
             await expect(
-                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 0.9})
+                bvsVotingAccount1.applyForElections({ value: (electionsApplicationFee * BigInt(90)) / BigInt(100)})
             ).to.be.revertedWithCustomError(bvsVoting, 'MinimumApplicationFeeNotCovered');
         })
 
@@ -169,7 +172,7 @@ describe("BVS_Voting", () => {
             await callScheduleNextElections(admin);
 
             await expect(
-                bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+                bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
             ).not.to.be.reverted
 
             assert.equal((await admin.getElectionCandidatesSize()), BigInt(1));
@@ -211,7 +214,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when account votes on itself', async () => {
-            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            await bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
 
             await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
 
@@ -229,7 +232,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should revert when account already voted', async () => {
-            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            await bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
 
             // start elections
             await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
@@ -243,7 +246,7 @@ describe("BVS_Voting", () => {
         })
 
         it('should add new vote to the candidate', async () => {
-            await bvsVotingAccount1.applyForElections({ value: electionsApplicationFee * 1.1})
+            await bvsVotingAccount1.applyForElections({ value: payedApplicationFee})
             
             // start elections
             await time.increaseTo(mockNextElectionsConfig.electionsStartDate + TimeQuantities.DAY);
@@ -277,14 +280,14 @@ describe("BVS_Voting", () => {
             await expect(admin.closeElections()).to.be.revertedWithCustomError(bvsVoting, 'ElectionsAlreadyClosedOrNotYetScheduled');
         });
 
-        it("should revert when elections end date is not yet passed by 1 week", async () => {
-            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK - TimeQuantities.DAY);
+        it("should revert when elections end date not yet passed", async () => {
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate - TimeQuantities.DAY);
 
-            await expect(admin.closeElections()).to.be.revertedWithCustomError(bvsVoting, 'ElectionsCanOnlyClose7DaysAfterTheirEndDate');
+            await expect(admin.closeElections()).to.be.revertedWithCustomError(bvsVoting, 'ElectionsCanOnlyCloseAfterItsEndDate');
         });
 
         it("should close elections", async () => {
-            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.WEEK + TimeQuantities.DAY);
+            await time.increaseTo(mockNextElectionsConfig.electionsEndDate + TimeQuantities.DAY);
 
             await expect(admin.closeElections()).not.to.be.reverted;
 
@@ -668,7 +671,7 @@ describe("BVS_Voting", () => {
 
             await assert.equal((await politicalActor.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(1));
 
-
+            const numOfCitizens = await politicalActor.getCitizensSize();
             const votingKey = await politicalActor.votingKeys(0);
 
             deepEqual((await politicalActor.votings(votingKey)),[
@@ -682,7 +685,8 @@ describe("BVS_Voting", () => {
                 newVotingStartDate,
                 0,
                 0,
-                ''
+                '',
+                numOfCitizens
             ])
         })
 

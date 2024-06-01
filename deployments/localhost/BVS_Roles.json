@@ -1,0 +1,761 @@
+{
+  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "AdminRoleGrantApprovalAlreadySent",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CitizenRoleAlreadyGranted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CitizenRoleAlreadyRevokedOrNotGranted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MinimumApplicationFeeNotCovered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotAppliedForCitizenRole",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "PermissionsUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RunOutOfDailyCitizenRoleGrantCredit",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "executer",
+          "type": "address"
+        }
+      ],
+      "name": "RoleGranted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "executer",
+          "type": "address"
+        }
+      ],
+      "name": "RoleRevoked",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "ADMINISTRATOR",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CITIZEN",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "POLITICAL_ACTOR",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "adminApprovalSentToAccount",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "adminRoleGrantApprovals",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "admins",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_emailPublicKeyCombinedHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "applyForCitizenshipRole",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "checkIfAccounthasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "citizenRoleApplicationFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "citizens",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "citizenshipApplications",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "creationDate",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyCitizenRoleModifyCredit",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getAdminsSize",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCitizensSize",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPoliticalActorsSize",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_emailPublicKeyHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "_revokeCitizenRole",
+          "type": "bool"
+        }
+      ],
+      "name": "grantCitizenRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "hasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_string",
+          "type": "string"
+        }
+      ],
+      "name": "isEmptyString",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "politicalActorVotingCredits",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "politicalActors",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "revokedAccount",
+          "type": "address"
+        }
+      ],
+      "name": "revokeAdminRoleApproval",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "sendGrantAdministratorRoleApproval",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateCitizenshipRoleApplicationFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x6235afb9213f32fca6f38b3373fd4ef9864a8f8babd34562a80057b902fab03d",
+  "receipt": {
+    "to": null,
+    "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "transactionIndex": 0,
+    "gasUsed": "1350978",
+    "logsBloom": "0x00000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000001000000000000000000040000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x5ac1931c43d9e423786aa1e8ff34ad0f86c7be3f4713afd6c5ceabd49ec3e9df",
+    "transactionHash": "0x6235afb9213f32fca6f38b3373fd4ef9864a8f8babd34562a80057b902fab03d",
+    "logs": [
+      {
+        "transactionIndex": 0,
+        "blockNumber": 1,
+        "transactionHash": "0x6235afb9213f32fca6f38b3373fd4ef9864a8f8babd34562a80057b902fab03d",
+        "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "topics": [
+          "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d"
+        ],
+        "data": "0xb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "logIndex": 0,
+        "blockHash": "0x5ac1931c43d9e423786aa1e8ff34ad0f86c7be3f4713afd6c5ceabd49ec3e9df"
+      },
+      {
+        "transactionIndex": 0,
+        "blockNumber": 1,
+        "transactionHash": "0x6235afb9213f32fca6f38b3373fd4ef9864a8f8babd34562a80057b902fab03d",
+        "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "topics": [
+          "0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d"
+        ],
+        "data": "0x313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "logIndex": 1,
+        "blockHash": "0x5ac1931c43d9e423786aa1e8ff34ad0f86c7be3f4713afd6c5ceabd49ec3e9df"
+      }
+    ],
+    "blockNumber": 1,
+    "cumulativeGasUsed": "1350978",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "15e8a1d017ba91fe81a2fe13dce6e0a9",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.19+commit.7dd6d404\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AdminRoleGrantApprovalAlreadySent\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CitizenRoleAlreadyGranted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CitizenRoleAlreadyRevokedOrNotGranted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MinimumApplicationFeeNotCovered\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAppliedForCitizenRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"PermissionsUnauthorizedAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RunOutOfDailyCitizenRoleGrantCredit\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"executer\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"executer\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"ADMINISTRATOR\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"CITIZEN\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"POLITICAL_ACTOR\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"adminApprovalSentToAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"adminRoleGrantApprovals\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"admins\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_emailPublicKeyCombinedHash\",\"type\":\"bytes32\"}],\"name\":\"applyForCitizenshipRole\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_role\",\"type\":\"bytes32\"}],\"name\":\"checkIfAccounthasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"citizenRoleApplicationFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"citizens\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"citizenshipApplications\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"creationDate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"dailyCitizenRoleModifyCredit\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAdminsSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCitizensSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPoliticalActorsSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_emailPublicKeyHash\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"_revokeCitizenRole\",\"type\":\"bool\"}],\"name\":\"grantCitizenRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_string\",\"type\":\"string\"}],\"name\":\"isEmptyString\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"politicalActorVotingCredits\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"politicalActors\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"revokedAccount\",\"type\":\"address\"}],\"name\":\"revokeAdminRoleApproval\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"sendGrantAdministratorRoleApproval\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"updateCitizenshipRoleApplicationFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"M\\u00e1rton S\\u00e1ndor Horv\\u00e1th, email: hmartonsandor{@}gmail.com\",\"kind\":\"dev\",\"methods\":{},\"title\":\"Balanced Voting System:Roles - contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"@dev\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/BVS_Roles.sol\":\"BVS_Roles\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":1},\"remappings\":[]},\"sources\":{\"contracts/BVS_Roles.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n\\n// pragma\\npragma solidity ^0.8.9;\\n\\n/**\\n * @title Balanced Voting System:Roles - contract\\n * @author M\\u00e1rton S\\u00e1ndor Horv\\u00e1th, email: hmartonsandor{@}gmail.com\\n * @notice\\n * @dev\\n */\\n\\ncontract BVS_Roles {\\n    uint public constant MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED = 50;\\n    uint public constant MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE = 10;\\n\\n    bytes32 public constant ADMINISTRATOR = keccak256(\\\"ADMINISTRATOR\\\");\\n    bytes32 public constant POLITICAL_ACTOR = keccak256(\\\"POLITICAL_ACTOR\\\");\\n    bytes32 public constant CITIZEN = keccak256(\\\"CITIZEN\\\");\\n\\n    uint public citizenRoleApplicationFee = 10000;\\n\\n    address[] public admins;\\n    address[] public politicalActors;\\n    mapping(address => uint) public politicalActorVotingCredits;\\n    address[] public citizens;\\n\\n    uint public immutable creationDate;\\n\\n    mapping(address => address[]) public adminApprovalSentToAccount;\\n    mapping(address => uint) public adminRoleGrantApprovals;\\n\\n    mapping(address => mapping(uint => uint))\\n        public dailyCitizenRoleModifyCredit;\\n\\n    mapping(address => bytes32) public citizenshipApplications;\\n\\n    mapping(bytes32 => mapping(address => bool)) private _hasRole;\\n\\n    // Events\\n\\n    event RoleGranted(bytes32 role, address account, address executer);\\n\\n    event RoleRevoked(bytes32 role, address account, address executer);\\n\\n    // Errors\\n    error CitizenRoleAlreadyGranted();\\n    error CitizenRoleAlreadyRevokedOrNotGranted();\\n    error NotAppliedForCitizenRole();\\n    error RunOutOfDailyCitizenRoleGrantCredit();\\n    error AdminRoleGrantApprovalAlreadySent();\\n\\n    error MinimumApplicationFeeNotCovered();\\n\\n    error PermissionsUnauthorizedAccount(address account, bytes32 role);\\n\\n    modifier onlyRole(bytes32 role) {\\n        _checkRole(role, msg.sender);\\n        _;\\n    }\\n\\n    modifier minCitizenshipApplicationFeeCovered() {\\n        if (msg.value < citizenRoleApplicationFee) {\\n            revert MinimumApplicationFeeNotCovered();\\n        }\\n        _;\\n    }\\n\\n    modifier appliedForCitizenRole(address _account, bytes32 _emailPublicKeyHash, bool _revokeCitizenRole) {\\n        if (citizenshipApplications[_account] != _emailPublicKeyHash && !_revokeCitizenRole) {\\n            revert NotAppliedForCitizenRole();\\n        }\\n        _;\\n    }\\n\\n    modifier hasRoleToModify(address _account, bool isRevoke) {\\n        if (!isRevoke && hasRole(CITIZEN, _account))\\n            revert CitizenRoleAlreadyGranted();\\n        if (isRevoke && !hasRole(CITIZEN, _account))\\n            revert CitizenRoleAlreadyRevokedOrNotGranted();\\n        _;\\n    }\\n\\n    modifier hasCitizenRoleGrantCredit() {\\n        uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;\\n\\n        uint maxCitizensCanBeAddPerAdmin = (citizens.length /\\n            MAX_DAILY_NEW_CITIZENS_CAN_ADD_PERCENTAGE) / admins.length;\\n        maxCitizensCanBeAddPerAdmin = maxCitizensCanBeAddPerAdmin > 0\\n            ? maxCitizensCanBeAddPerAdmin\\n            : 1;\\n\\n        if (\\n            dailyCitizenRoleModifyCredit[msg.sender][daysPassed] >=\\n            maxCitizensCanBeAddPerAdmin\\n        ) revert RunOutOfDailyCitizenRoleGrantCredit();\\n        _;\\n    }\\n\\n    modifier adminRoleGrantApprovalNotSent(address _account) {\\n        bool adminRoleGrantApprovalAlreadySent = false;\\n        for (\\n            uint i = 0;\\n            i < adminApprovalSentToAccount[msg.sender].length;\\n            i++\\n        ) {\\n            if (adminApprovalSentToAccount[msg.sender][i] == _account) {\\n                adminRoleGrantApprovalAlreadySent = true;\\n            }\\n        }\\n\\n        if (adminRoleGrantApprovalAlreadySent)\\n            revert AdminRoleGrantApprovalAlreadySent();\\n        _;\\n    }\\n\\n    constructor() {\\n        admins.push(msg.sender);\\n        adminRoleGrantApprovals[msg.sender] = 1;\\n        citizens.push(msg.sender);\\n        creationDate = block.timestamp;\\n        _setupRole(ADMINISTRATOR, msg.sender);\\n        _setupRole(CITIZEN, msg.sender);\\n    }\\n\\n    function _setupRole(bytes32 role, address account) internal virtual {\\n        _hasRole[role][account] = true;\\n        emit RoleGranted(role, account, msg.sender);\\n    }\\n\\n    function _revokeRole(bytes32 role, address account) internal virtual {\\n        _checkRole(role, account);\\n        delete _hasRole[role][account];\\n        emit RoleRevoked(role, account, msg.sender);\\n    }\\n\\n    /// @dev Checks `role` for `account`. Reverts with a message including the required role.\\n    function _checkRole(bytes32 role, address account) internal view virtual {\\n        if (!_hasRole[role][account]) {\\n            revert PermissionsUnauthorizedAccount(account, role);\\n        }\\n    }\\n\\n    function hasRole(bytes32 role, address account) public view returns (bool) {\\n        return _hasRole[role][account];\\n    }\\n\\n    function applyForCitizenshipRole(\\n        bytes32 _emailPublicKeyCombinedHash\\n    ) public payable minCitizenshipApplicationFeeCovered {\\n        citizenshipApplications[msg.sender] = _emailPublicKeyCombinedHash;\\n    }\\n\\n    function sendGrantAdministratorRoleApproval(\\n        address _account\\n    ) public onlyRole(ADMINISTRATOR) adminRoleGrantApprovalNotSent(_account) {\\n        adminApprovalSentToAccount[msg.sender].push(_account);\\n        adminRoleGrantApprovals[_account]++;\\n\\n        if (\\n            admins.length == 0 ||\\n            (adminRoleGrantApprovals[_account] * 1000) / admins.length >\\n            MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10\\n        ) {\\n            adminRoleGrantApprovals[_account]++;\\n            // also new admin has to automatically send his approvals to the already existing admins\\n            for (uint i = 0; i < admins.length; i++) {\\n                adminApprovalSentToAccount[_account].push(admins[i]);\\n                adminRoleGrantApprovals[admins[i]]++;\\n            }\\n            _setupRole(ADMINISTRATOR, _account);\\n            admins.push(_account);\\n        }\\n    }\\n\\n    function revokeAdminRoleApproval(\\n        address revokedAccount\\n    ) public onlyRole(ADMINISTRATOR) {\\n        _revokeAdminRoleApproval(msg.sender, revokedAccount);\\n    }\\n\\n    function _revokeAdminRoleApproval(\\n        address admin,\\n        address revokedAccount\\n    ) internal {\\n        for (uint i = 0; i < adminApprovalSentToAccount[admin].length; i++) {\\n            if (adminApprovalSentToAccount[admin][i] == revokedAccount) {\\n                delete adminApprovalSentToAccount[admin][i];\\n                adminRoleGrantApprovals[revokedAccount]--;\\n                if (\\n                    (adminRoleGrantApprovals[revokedAccount] * 1000) /\\n                        admins.length <\\n                    MIN_PERCENTAGE_GRANT_ADMIN_APPROVALS_REQUIRED * 10\\n                ) {\\n                    adminRoleGrantApprovals[revokedAccount]--;\\n                    _revokeRole(ADMINISTRATOR, revokedAccount);\\n                    for (uint u = 0; u < admins.length; u++) {\\n                        if (admins[u] == revokedAccount) {\\n                            delete admins[u];\\n                            admins[u] = admins[admins.length - 1];\\n                            admins.pop();\\n                            break;\\n                        }\\n                    }\\n                    // make sure all the other admins get revoked their approval receieved from this admin\\n                    for (\\n                        uint k = 0;\\n                        k < adminApprovalSentToAccount[revokedAccount].length;\\n                        k++\\n                    ) {\\n                        _revokeAdminRoleApproval(\\n                            revokedAccount,\\n                            adminApprovalSentToAccount[revokedAccount][k]\\n                        );\\n                        delete adminApprovalSentToAccount[revokedAccount][k];\\n                    }\\n                    break;\\n                }\\n            }\\n        }\\n    }\\n\\n    function grantCitizenRole(\\n        address _account,\\n        bytes32 _emailPublicKeyHash,\\n        bool _revokeCitizenRole\\n    )\\n        public\\n        onlyRole(ADMINISTRATOR)\\n        hasRoleToModify(_account, _revokeCitizenRole)\\n        hasCitizenRoleGrantCredit\\n        appliedForCitizenRole(_account, _emailPublicKeyHash, _revokeCitizenRole)\\n    {\\n        uint daysPassed = (block.timestamp - creationDate) / 60 / 60 / 24;\\n        dailyCitizenRoleModifyCredit[msg.sender][daysPassed]++;\\n        if (!_revokeCitizenRole) {\\n            _setupRole(CITIZEN, _account);\\n            citizens.push(_account);\\n            delete citizenshipApplications[_account];\\n        } else {\\n            if (hasRole(CITIZEN, _account)) {\\n                _revokeRole(CITIZEN, _account);\\n            }\\n            delete citizenshipApplications[_account];\\n            for (uint i; i < citizens.length; i++) {\\n                if (citizens[i] == _account) {\\n                    delete citizens[i];\\n                    break;\\n                }\\n            }\\n        }\\n    }\\n\\n    function updateCitizenshipRoleApplicationFee(\\n        uint value\\n    ) public onlyRole(ADMINISTRATOR) {\\n        citizenRoleApplicationFee = value;\\n    }\\n\\n    function checkIfAccounthasRole(\\n        address _account,\\n        bytes32 _role\\n    ) public view returns (bool) {\\n        return hasRole(_role, _account);\\n    }\\n\\n    function getAdminsSize() public view returns (uint) {\\n        return admins.length;\\n    }\\n\\n    function getCitizensSize() public view returns (uint) {\\n        return citizens.length;\\n    }\\n\\n    function getPoliticalActorsSize() public view returns (uint) {\\n        return politicalActors.length;\\n    }\\n\\n    function isEmptyString(string memory _string) public pure returns (bool) {\\n        return keccak256(bytes(_string)) == keccak256(bytes(\\\"\\\"));\\n    }\\n}\\n\",\"keccak256\":\"0x4a7098ae2d69cc7715ba7c7ed1dc23829ffe7d25d2ee20fa58e9a7a1cb6b2148\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60a060405261271060005534801561001657600080fd5b506001805480820182557fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6018054336001600160a01b03199182168117909255600082815260066020526040812084905560048054948501815590527f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b90920180549092168117909155426080526100cf907fb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661906100fe565b6100f97f313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9336100fe565b610170565b60008281526009602090815260408083206001600160a01b03851680855290835292819020805460ff19166001179055805185815291820192909252338183015290517f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d916060908290030190a15050565b60805161141e6101996000396000818161014801528181610670015261077b015261141e6000f3fe6080604052600436106101315760003560e01c806305b344101461013657806309a34f001461017d57806309d39b79146101b557806314bfd6d0146101d557806319d3cfd4146101f5578063206f0af41461020a578063257de397146102425780633ad4ecee146102645780633ea29d7514610277578063532da8e3146102a45780635675d898146102d857806359fe7279146102f857806367fadfd91461031a5780636c5140bd1461033c578063727b81a31461035c57806391d14854146103725780639aa2d819146103a2578063a45f379e146103b7578063afbfea7f1461040c578063bbc3912814610439578063c06b62ea1461044e578063c8c99cc31461046e578063cfaf234a1461048e578063d77a603c146104a3578063d9b19622146104c3578063fe3fd175146104d8575b600080fd5b34801561014257600080fd5b5061016a7f000000000000000000000000000000000000000000000000000000000000000081565b6040519081526020015b60405180910390f35b34801561018957600080fd5b5061019d61019836600461111a565b610505565b6040516001600160a01b039091168152602001610174565b3480156101c157600080fd5b5061019d6101d036600461111a565b61052f565b3480156101e157600080fd5b5061019d6101f036600461111a565b61053f565b34801561020157600080fd5b5060045461016a565b34801561021657600080fd5b5061016a61022536600461114f565b600760209081526000928352604080842090915290825290205481565b34801561024e57600080fd5b5061026261025d36600461111a565b61054f565b005b61026261027236600461111a565b61056e565b34801561028357600080fd5b5061016a610292366004611179565b60066020526000908152604090205481565b3480156102b057600080fd5b5061016a7f9f70d138cbbd87297896478196b4493d9dceaca01f5883ecbd7bee66d300348d81565b3480156102e457600080fd5b506102626102f3366004611179565b6105a3565b34801561030457600080fd5b5061016a6000805160206113a983398151915281565b34801561032657600080fd5b5061016a6000805160206113c983398151915281565b34801561034857600080fd5b50610262610357366004611194565b6105ca565b34801561036857600080fd5b5061016a60005481565b34801561037e57600080fd5b5061039261038d3660046111d9565b61094b565b6040519015158152602001610174565b3480156103ae57600080fd5b5061016a600a81565b3480156103c357600080fd5b506103926103d236600461121b565b6040805160208082019092526000905281519101207fc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a4701490565b34801561041857600080fd5b5061016a610427366004611179565b60086020526000908152604090205481565b34801561044557600080fd5b5060025461016a565b34801561045a57600080fd5b50610262610469366004611179565b610978565b34801561047a57600080fd5b5061019d61048936600461114f565b610c38565b34801561049a57600080fd5b5061016a603281565b3480156104af57600080fd5b506103926104be36600461114f565b610c70565b3480156104cf57600080fd5b5060015461016a565b3480156104e457600080fd5b5061016a6104f3366004611179565b60036020526000908152604090205481565b6004818154811061051557600080fd5b6000918252602090912001546001600160a01b0316905081565b6002818154811061051557600080fd5b6001818154811061051557600080fd5b6000805160206113a98339815191526105688133610c83565b50600055565b6000543410156105915760405163529c3ec360e11b815260040160405180910390fd5b33600090815260086020526040902055565b6000805160206113a98339815191526105bc8133610c83565b6105c63383610cdc565b5050565b6000805160206113a98339815191526105e38133610c83565b83828015801561060657506106066000805160206113c98339815191528361094b565b156106245760405163bf6368b960e01b815260040160405180910390fd5b80801561064657506106446000805160206113c98339815191528361094b565b155b1561066457604051635cb2b5e560e11b815260040160405180910390fd5b60006018603c806106957f0000000000000000000000000000000000000000000000000000000000000000426112e1565b61069f91906112f4565b6106a991906112f4565b6106b391906112f4565b6001546004549192506000916106cb90600a906112f4565b6106d591906112f4565b9050600081116106e65760016106e8565b805b3360009081526007602090815260408083208684529091529020549091508111610725576040516340b21b6d60e11b815260040160405180910390fd5b6001600160a01b0388166000908152600860205260409020548890889088908214801590610751575080155b1561076f576040516309ea00b960e01b815260040160405180910390fd5b60006018603c806107a07f0000000000000000000000000000000000000000000000000000000000000000426112e1565b6107aa91906112f4565b6107b491906112f4565b6107be91906112f4565b33600090815260076020908152604080832084845290915281208054929350906107e783611316565b919050555089610866576108096000805160206113c98339815191528d611045565b60048054600181019091557f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b0180546001600160a01b0319166001600160a01b038e1690811790915560009081526008602052604081205561093d565b61087e6000805160206113c98339815191528d61094b565b1561089b5761089b6000805160206113c98339815191528d6110b2565b6001600160a01b038c1660009081526008602052604081208190555b60045481101561093b578c6001600160a01b0316600482815481106108de576108de61132f565b6000918252602090912001546001600160a01b031603610929576004818154811061090b5761090b61132f565b600091825260209091200180546001600160a01b031916905561093b565b8061093381611316565b9150506108b7565b505b505050505050505050505050565b60008281526009602090815260408083206001600160a01b038516845290915290205460ff165b92915050565b6000805160206113a98339815191526109918133610c83565b816000805b33600090815260056020526040902054811015610a0b5733600090815260056020526040902080546001600160a01b0385169190839081106109da576109da61132f565b6000918252602090912001546001600160a01b0316036109f957600191505b80610a0381611316565b915050610996565b508015610a2b576040516301624e0d60e21b815260040160405180910390fd5b33600090815260056020908152604080832080546001810182559084528284200180546001600160a01b0319166001600160a01b038916908117909155835260069091528120805491610a7d83611316565b90915550506001541580610acc5750610a986032600a611345565b6001546001600160a01b038616600090815260066020526040902054610ac0906103e8611345565b610aca91906112f4565b115b15610c32576001600160a01b0384166000908152600660205260408120805491610af583611316565b919050555060005b600154811015610bce576001600160a01b03851660009081526005602052604090206001805483908110610b3357610b3361132f565b600091825260208083209091015483546001818101865594845291832090910180546001600160a01b0319166001600160a01b0390921691909117905581546006929084908110610b8657610b8661132f565b60009182526020808320909101546001600160a01b031683528201929092526040018120805491610bb683611316565b91905055508080610bc690611316565b915050610afd565b50610be76000805160206113a983398151915285611045565b6001805480820182556000919091527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf60180546001600160a01b0319166001600160a01b0386161790555b50505050565b60056020528160005260406000208181548110610c5457600080fd5b6000918252602090912001546001600160a01b03169150829050565b6000610c7c828461094b565b9392505050565b60008281526009602090815260408083206001600160a01b038516845290915290205460ff166105c65760405163043c588360e11b81526001600160a01b03821660048201526024810183905260440160405180910390fd5b60005b6001600160a01b038316600090815260056020526040902054811015611040576001600160a01b03838116600090815260056020526040902080549184169183908110610d2e57610d2e61132f565b6000918252602090912001546001600160a01b03160361102e576001600160a01b0383166000908152600560205260409020805482908110610d7257610d7261132f565b6000918252602080832090910180546001600160a01b03191690556001600160a01b03841682526006905260408120805491610dad8361135c565b90915550610dbf90506032600a611345565b6001546001600160a01b038416600090815260066020526040902054610de7906103e8611345565b610df191906112f4565b101561102e576001600160a01b0382166000908152600660205260408120805491610e1b8361135c565b9190505550610e386000805160206113a9833981519152836110b2565b60005b600154811015610f6b57826001600160a01b031660018281548110610e6257610e6261132f565b6000918252602090912001546001600160a01b031603610f595760018181548110610e8f57610e8f61132f565b600091825260209091200180546001600160a01b031916905560018054610eb79082906112e1565b81548110610ec757610ec761132f565b600091825260209091200154600180546001600160a01b039092169183908110610ef357610ef361132f565b9060005260206000200160006101000a8154816001600160a01b0302191690836001600160a01b031602179055506001805480610f3257610f32611373565b600082815260209020810160001990810180546001600160a01b0319169055019055610f6b565b80610f6381611316565b915050610e3b565b5060005b6001600160a01b038316600090815260056020526040902054811015610c32576001600160a01b03831660009081526005602052604090208054610fd991859184908110610fbf57610fbf61132f565b6000918252602090912001546001600160a01b0316610cdc565b6001600160a01b03831660009081526005602052604090208054829081106110035761100361132f565b600091825260209091200180546001600160a01b03191690558061102681611316565b915050610f6f565b8061103881611316565b915050610cdf565b505050565b60008281526009602090815260408083206001600160a01b038516845290915290819020805460ff19166001179055517f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d906110a690849084903390611389565b60405180910390a15050565b6110bc8282610c83565b60008281526009602090815260408083206001600160a01b038516845290915290819020805460ff19169055517ff6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b906110a690849084903390611389565b60006020828403121561112c57600080fd5b5035919050565b80356001600160a01b038116811461114a57600080fd5b919050565b6000806040838503121561116257600080fd5b61116b83611133565b946020939093013593505050565b60006020828403121561118b57600080fd5b610c7c82611133565b6000806000606084860312156111a957600080fd5b6111b284611133565b925060208401359150604084013580151581146111ce57600080fd5b809150509250925092565b600080604083850312156111ec57600080fd5b823591506111fc60208401611133565b90509250929050565b634e487b7160e01b600052604160045260246000fd5b60006020828403121561122d57600080fd5b81356001600160401b038082111561124457600080fd5b818401915084601f83011261125857600080fd5b81358181111561126a5761126a611205565b604051601f8201601f19908116603f0116810190838211818310171561129257611292611205565b816040528281528760208487010111156112ab57600080fd5b826020860160208301376000928101602001929092525095945050505050565b634e487b7160e01b600052601160045260246000fd5b81810381811115610972576109726112cb565b60008261131157634e487b7160e01b600052601260045260246000fd5b500490565b600060018201611328576113286112cb565b5060010190565b634e487b7160e01b600052603260045260246000fd5b8082028115828204841417610972576109726112cb565b60008161136b5761136b6112cb565b506000190190565b634e487b7160e01b600052603160045260246000fd5b9283526001600160a01b0391821660208401521660408201526060019056feb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9a26469706673582212206f329c40d83e3641cfc79c0999267f3bdbb4703758e142d361d063b01553ae4c64736f6c63430008130033",
+  "deployedBytecode": "0x6080604052600436106101315760003560e01c806305b344101461013657806309a34f001461017d57806309d39b79146101b557806314bfd6d0146101d557806319d3cfd4146101f5578063206f0af41461020a578063257de397146102425780633ad4ecee146102645780633ea29d7514610277578063532da8e3146102a45780635675d898146102d857806359fe7279146102f857806367fadfd91461031a5780636c5140bd1461033c578063727b81a31461035c57806391d14854146103725780639aa2d819146103a2578063a45f379e146103b7578063afbfea7f1461040c578063bbc3912814610439578063c06b62ea1461044e578063c8c99cc31461046e578063cfaf234a1461048e578063d77a603c146104a3578063d9b19622146104c3578063fe3fd175146104d8575b600080fd5b34801561014257600080fd5b5061016a7f000000000000000000000000000000000000000000000000000000000000000081565b6040519081526020015b60405180910390f35b34801561018957600080fd5b5061019d61019836600461111a565b610505565b6040516001600160a01b039091168152602001610174565b3480156101c157600080fd5b5061019d6101d036600461111a565b61052f565b3480156101e157600080fd5b5061019d6101f036600461111a565b61053f565b34801561020157600080fd5b5060045461016a565b34801561021657600080fd5b5061016a61022536600461114f565b600760209081526000928352604080842090915290825290205481565b34801561024e57600080fd5b5061026261025d36600461111a565b61054f565b005b61026261027236600461111a565b61056e565b34801561028357600080fd5b5061016a610292366004611179565b60066020526000908152604090205481565b3480156102b057600080fd5b5061016a7f9f70d138cbbd87297896478196b4493d9dceaca01f5883ecbd7bee66d300348d81565b3480156102e457600080fd5b506102626102f3366004611179565b6105a3565b34801561030457600080fd5b5061016a6000805160206113a983398151915281565b34801561032657600080fd5b5061016a6000805160206113c983398151915281565b34801561034857600080fd5b50610262610357366004611194565b6105ca565b34801561036857600080fd5b5061016a60005481565b34801561037e57600080fd5b5061039261038d3660046111d9565b61094b565b6040519015158152602001610174565b3480156103ae57600080fd5b5061016a600a81565b3480156103c357600080fd5b506103926103d236600461121b565b6040805160208082019092526000905281519101207fc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a4701490565b34801561041857600080fd5b5061016a610427366004611179565b60086020526000908152604090205481565b34801561044557600080fd5b5060025461016a565b34801561045a57600080fd5b50610262610469366004611179565b610978565b34801561047a57600080fd5b5061019d61048936600461114f565b610c38565b34801561049a57600080fd5b5061016a603281565b3480156104af57600080fd5b506103926104be36600461114f565b610c70565b3480156104cf57600080fd5b5060015461016a565b3480156104e457600080fd5b5061016a6104f3366004611179565b60036020526000908152604090205481565b6004818154811061051557600080fd5b6000918252602090912001546001600160a01b0316905081565b6002818154811061051557600080fd5b6001818154811061051557600080fd5b6000805160206113a98339815191526105688133610c83565b50600055565b6000543410156105915760405163529c3ec360e11b815260040160405180910390fd5b33600090815260086020526040902055565b6000805160206113a98339815191526105bc8133610c83565b6105c63383610cdc565b5050565b6000805160206113a98339815191526105e38133610c83565b83828015801561060657506106066000805160206113c98339815191528361094b565b156106245760405163bf6368b960e01b815260040160405180910390fd5b80801561064657506106446000805160206113c98339815191528361094b565b155b1561066457604051635cb2b5e560e11b815260040160405180910390fd5b60006018603c806106957f0000000000000000000000000000000000000000000000000000000000000000426112e1565b61069f91906112f4565b6106a991906112f4565b6106b391906112f4565b6001546004549192506000916106cb90600a906112f4565b6106d591906112f4565b9050600081116106e65760016106e8565b805b3360009081526007602090815260408083208684529091529020549091508111610725576040516340b21b6d60e11b815260040160405180910390fd5b6001600160a01b0388166000908152600860205260409020548890889088908214801590610751575080155b1561076f576040516309ea00b960e01b815260040160405180910390fd5b60006018603c806107a07f0000000000000000000000000000000000000000000000000000000000000000426112e1565b6107aa91906112f4565b6107b491906112f4565b6107be91906112f4565b33600090815260076020908152604080832084845290915281208054929350906107e783611316565b919050555089610866576108096000805160206113c98339815191528d611045565b60048054600181019091557f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b0180546001600160a01b0319166001600160a01b038e1690811790915560009081526008602052604081205561093d565b61087e6000805160206113c98339815191528d61094b565b1561089b5761089b6000805160206113c98339815191528d6110b2565b6001600160a01b038c1660009081526008602052604081208190555b60045481101561093b578c6001600160a01b0316600482815481106108de576108de61132f565b6000918252602090912001546001600160a01b031603610929576004818154811061090b5761090b61132f565b600091825260209091200180546001600160a01b031916905561093b565b8061093381611316565b9150506108b7565b505b505050505050505050505050565b60008281526009602090815260408083206001600160a01b038516845290915290205460ff165b92915050565b6000805160206113a98339815191526109918133610c83565b816000805b33600090815260056020526040902054811015610a0b5733600090815260056020526040902080546001600160a01b0385169190839081106109da576109da61132f565b6000918252602090912001546001600160a01b0316036109f957600191505b80610a0381611316565b915050610996565b508015610a2b576040516301624e0d60e21b815260040160405180910390fd5b33600090815260056020908152604080832080546001810182559084528284200180546001600160a01b0319166001600160a01b038916908117909155835260069091528120805491610a7d83611316565b90915550506001541580610acc5750610a986032600a611345565b6001546001600160a01b038616600090815260066020526040902054610ac0906103e8611345565b610aca91906112f4565b115b15610c32576001600160a01b0384166000908152600660205260408120805491610af583611316565b919050555060005b600154811015610bce576001600160a01b03851660009081526005602052604090206001805483908110610b3357610b3361132f565b600091825260208083209091015483546001818101865594845291832090910180546001600160a01b0319166001600160a01b0390921691909117905581546006929084908110610b8657610b8661132f565b60009182526020808320909101546001600160a01b031683528201929092526040018120805491610bb683611316565b91905055508080610bc690611316565b915050610afd565b50610be76000805160206113a983398151915285611045565b6001805480820182556000919091527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf60180546001600160a01b0319166001600160a01b0386161790555b50505050565b60056020528160005260406000208181548110610c5457600080fd5b6000918252602090912001546001600160a01b03169150829050565b6000610c7c828461094b565b9392505050565b60008281526009602090815260408083206001600160a01b038516845290915290205460ff166105c65760405163043c588360e11b81526001600160a01b03821660048201526024810183905260440160405180910390fd5b60005b6001600160a01b038316600090815260056020526040902054811015611040576001600160a01b03838116600090815260056020526040902080549184169183908110610d2e57610d2e61132f565b6000918252602090912001546001600160a01b03160361102e576001600160a01b0383166000908152600560205260409020805482908110610d7257610d7261132f565b6000918252602080832090910180546001600160a01b03191690556001600160a01b03841682526006905260408120805491610dad8361135c565b90915550610dbf90506032600a611345565b6001546001600160a01b038416600090815260066020526040902054610de7906103e8611345565b610df191906112f4565b101561102e576001600160a01b0382166000908152600660205260408120805491610e1b8361135c565b9190505550610e386000805160206113a9833981519152836110b2565b60005b600154811015610f6b57826001600160a01b031660018281548110610e6257610e6261132f565b6000918252602090912001546001600160a01b031603610f595760018181548110610e8f57610e8f61132f565b600091825260209091200180546001600160a01b031916905560018054610eb79082906112e1565b81548110610ec757610ec761132f565b600091825260209091200154600180546001600160a01b039092169183908110610ef357610ef361132f565b9060005260206000200160006101000a8154816001600160a01b0302191690836001600160a01b031602179055506001805480610f3257610f32611373565b600082815260209020810160001990810180546001600160a01b0319169055019055610f6b565b80610f6381611316565b915050610e3b565b5060005b6001600160a01b038316600090815260056020526040902054811015610c32576001600160a01b03831660009081526005602052604090208054610fd991859184908110610fbf57610fbf61132f565b6000918252602090912001546001600160a01b0316610cdc565b6001600160a01b03831660009081526005602052604090208054829081106110035761100361132f565b600091825260209091200180546001600160a01b03191690558061102681611316565b915050610f6f565b8061103881611316565b915050610cdf565b505050565b60008281526009602090815260408083206001600160a01b038516845290915290819020805460ff19166001179055517f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d906110a690849084903390611389565b60405180910390a15050565b6110bc8282610c83565b60008281526009602090815260408083206001600160a01b038516845290915290819020805460ff19169055517ff6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b906110a690849084903390611389565b60006020828403121561112c57600080fd5b5035919050565b80356001600160a01b038116811461114a57600080fd5b919050565b6000806040838503121561116257600080fd5b61116b83611133565b946020939093013593505050565b60006020828403121561118b57600080fd5b610c7c82611133565b6000806000606084860312156111a957600080fd5b6111b284611133565b925060208401359150604084013580151581146111ce57600080fd5b809150509250925092565b600080604083850312156111ec57600080fd5b823591506111fc60208401611133565b90509250929050565b634e487b7160e01b600052604160045260246000fd5b60006020828403121561122d57600080fd5b81356001600160401b038082111561124457600080fd5b818401915084601f83011261125857600080fd5b81358181111561126a5761126a611205565b604051601f8201601f19908116603f0116810190838211818310171561129257611292611205565b816040528281528760208487010111156112ab57600080fd5b826020860160208301376000928101602001929092525095945050505050565b634e487b7160e01b600052601160045260246000fd5b81810381811115610972576109726112cb565b60008261131157634e487b7160e01b600052601260045260246000fd5b500490565b600060018201611328576113286112cb565b5060010190565b634e487b7160e01b600052603260045260246000fd5b8082028115828204841417610972576109726112cb565b60008161136b5761136b6112cb565b506000190190565b634e487b7160e01b600052603160045260246000fd5b9283526001600160a01b0391821660208401521660408201526060019056feb346b2ddc13f08bd9685b83a95304a79a2caac0aa7aa64129e1ae9f4361b4661313691be6e710b5e9c97c695d02c9e24926f986402f826152f3b2970694f72c9a26469706673582212206f329c40d83e3641cfc79c0999267f3bdbb4703758e142d361d063b01553ae4c64736f6c63430008130033",
+  "devdoc": {
+    "author": "Márton Sándor Horváth, email: hmartonsandor{@}gmail.com",
+    "kind": "dev",
+    "methods": {},
+    "title": "Balanced Voting System:Roles - contract",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "notice": "@dev",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 26,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "citizenRoleApplicationFee",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 29,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "admins",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_array(t_address)dyn_storage"
+      },
+      {
+        "astId": 32,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "politicalActors",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_address)dyn_storage"
+      },
+      {
+        "astId": 36,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "politicalActorVotingCredits",
+        "offset": 0,
+        "slot": "3",
+        "type": "t_mapping(t_address,t_uint256)"
+      },
+      {
+        "astId": 39,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "citizens",
+        "offset": 0,
+        "slot": "4",
+        "type": "t_array(t_address)dyn_storage"
+      },
+      {
+        "astId": 46,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "adminApprovalSentToAccount",
+        "offset": 0,
+        "slot": "5",
+        "type": "t_mapping(t_address,t_array(t_address)dyn_storage)"
+      },
+      {
+        "astId": 50,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "adminRoleGrantApprovals",
+        "offset": 0,
+        "slot": "6",
+        "type": "t_mapping(t_address,t_uint256)"
+      },
+      {
+        "astId": 56,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "dailyCitizenRoleModifyCredit",
+        "offset": 0,
+        "slot": "7",
+        "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+      },
+      {
+        "astId": 60,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "citizenshipApplications",
+        "offset": 0,
+        "slot": "8",
+        "type": "t_mapping(t_address,t_bytes32)"
+      },
+      {
+        "astId": 66,
+        "contract": "contracts/BVS_Roles.sol:BVS_Roles",
+        "label": "_hasRole",
+        "offset": 0,
+        "slot": "9",
+        "type": "t_mapping(t_bytes32,t_mapping(t_address,t_bool))"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_array(t_address)dyn_storage": {
+        "base": "t_address",
+        "encoding": "dynamic_array",
+        "label": "address[]",
+        "numberOfBytes": "32"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_bytes32": {
+        "encoding": "inplace",
+        "label": "bytes32",
+        "numberOfBytes": "32"
+      },
+      "t_mapping(t_address,t_array(t_address)dyn_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => address[])",
+        "numberOfBytes": "32",
+        "value": "t_array(t_address)dyn_storage"
+      },
+      "t_mapping(t_address,t_bool)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => bool)",
+        "numberOfBytes": "32",
+        "value": "t_bool"
+      },
+      "t_mapping(t_address,t_bytes32)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => bytes32)",
+        "numberOfBytes": "32",
+        "value": "t_bytes32"
+      },
+      "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => mapping(uint256 => uint256))",
+        "numberOfBytes": "32",
+        "value": "t_mapping(t_uint256,t_uint256)"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_mapping(t_bytes32,t_mapping(t_address,t_bool))": {
+        "encoding": "mapping",
+        "key": "t_bytes32",
+        "label": "mapping(bytes32 => mapping(address => bool))",
+        "numberOfBytes": "32",
+        "value": "t_mapping(t_address,t_bool)"
+      },
+      "t_mapping(t_uint256,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_uint256",
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}
