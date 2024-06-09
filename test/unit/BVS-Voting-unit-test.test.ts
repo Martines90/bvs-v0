@@ -566,13 +566,13 @@ describe("BVS_Voting", () => {
             await startNewVoting(politicalActor, firstVotingCycleStartDate + 22 * TimeQuantities.DAY);
 
             await assert.equal((await admin.votingCycleStartVoteCount(BigInt(0), accounts[1].address)), BigInt(1))
-            await assert.equal(await admin.getVotinCycleIndexesSize(), BigInt(1))
+            await assert.equal(await admin.getVotingCycleIndexesSize(), BigInt(1))
             
 
             await admin.setFirstVotingCycleStartDate(firstVotingCycleStartDate + VOTING_CYCLE_INTERVAL);
 
             await assert.equal((await admin.votingCycleStartVoteCount(BigInt(0), accounts[0].address)), BigInt(0))
-            await assert.equal(await admin.getVotinCycleIndexesSize(), BigInt(0))
+            await assert.equal(await admin.getVotingCycleIndexesSize(), BigInt(0))
             
         })
     })
@@ -703,7 +703,7 @@ describe("BVS_Voting", () => {
 
             await startNewVoting(politicalActor, mockFirstVotingCycleStartDate + 42 * TimeQuantities.DAY)
 
-            await assert.equal(await politicalActor.getVotinCycleIndexesSize(), BigInt(2))
+            await assert.equal(await politicalActor.getVotingCycleIndexesSize(), BigInt(2))
             await assert.equal(await politicalActor.votingCycleIndexes(0), BigInt(0))
             await assert.equal(await politicalActor.votingCycleIndexes(1), BigInt(1))
         })

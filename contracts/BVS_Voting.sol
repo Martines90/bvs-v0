@@ -70,7 +70,8 @@ contract BVS_Voting is BVS_Roles {
         bool isContentCompleted;
     }
 
-    mapping(string => string) public contactEmails;
+    mapping(string => string) public contacts;
+    string[] public contactKeys;
 
     // article content check answers
     mapping(bytes32 => bytes32[]) public articleContentReadCheckAnswers; // article key => answers
@@ -125,7 +126,6 @@ contract BVS_Voting is BVS_Roles {
 
     error ArticleNotExists();
     error ArticleNotRelatedToYourVoting();
-    error ContentCheckIpfsNotAssigned();
     error NoArticleContentCheckIpfsAssignedToThisArticle();
 
     error NoArticleResponseAssigned();
@@ -177,16 +177,6 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
-    modifier hasContentIpfs(bytes32 _votingKey, bytes32 _articleKey) {
-        if (
-            isEmptyString(
-                proConArticles[_votingKey][_articleKey]
-                    .responseContentCheckQuizIpfsHash
-            )
-        ) revert ContentCheckIpfsNotAssigned();
-        _;
-    }
-
     modifier firstVotingCycleStartDateIsInTheFuture(
         uint _firstVotingCycleStartDate
     ) {
@@ -204,7 +194,7 @@ contract BVS_Voting is BVS_Roles {
     }
 
     modifier votingWon(bytes32 _votingKey) {
-        if (!isVotingWon(_votingKey, true)) {
+        if (!isVotingWon(_votingKey)) {
             revert VotingDidNotWon();
         }
         _;
@@ -339,6 +329,8 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
+    // Contents
+
     modifier enoughContentReadQuizAnswerAdded(
         bytes32[] memory _keccak256HashedAnswers
     ) {
@@ -372,7 +364,7 @@ contract BVS_Voting is BVS_Roles {
         _;
     }
 
-    modifier hasArticleReponseAssigned(
+    modifier hasArticleResponseAssigned(
         bytes32 _votingKey,
         bytes32 _articleKey
     ) {
@@ -476,15 +468,14 @@ contract BVS_Voting is BVS_Roles {
 
     receive() external payable {}
 
-    function getBlockTime() public view returns (uint256) {
-        return block.timestamp;
-    }
-
-    function addUpdateContactEmail(
-        string memory emailKey,
-        string memory emailAddress
+    function addUpdateContact(
+        string memory contactKey,
+        string memory contactAddress
     ) public onlyRole(ADMINISTRATOR) {
-        contactEmails[emailKey] = emailAddress;
+        if (isEmptyString(contacts[contactKey])) {
+            contactKeys.push(contactKey);
+        }
+        contacts[contactKey] = contactAddress;
     }
 
     function updateCitizenshipApplicationFee(
@@ -568,6 +559,8 @@ contract BVS_Voting is BVS_Roles {
 
         electionsStartDate = 0;
     }
+
+    // Voting
 
     function unlockVotingBudget(
         bytes32 _votingKey
@@ -700,157 +693,6 @@ contract BVS_Voting is BVS_Roles {
         votings[_votingKey].approved = true;
     }
 
-    function publishProConArticle(
-        bytes32 _votingKey,
-        string memory _ipfsHash,
-        bool _isVoteOnA
-    )
-        public
-        onlyRole(POLITICAL_ACTOR)
-        hasCreditsLeftToPublishArticle(_votingKey)
-    {
-        bytes32 articleKey = keccak256(
-            abi.encodePacked(block.timestamp, msg.sender, _ipfsHash)
-        );
-
-        proConArticles[_votingKey][articleKey] = ProConArticle(
-            _votingKey,
-            false,
-            false,
-            msg.sender,
-            _ipfsHash,
-            _isVoteOnA,
-            "",
-            "",
-            ""
-        );
-        articleKeys.push(articleKey);
-        publishArticleToVotingsCount[msg.sender][_votingKey]++;
-    }
-
-    function assignQuizIpfsHashToArticleOrResponse(
-        bytes32 _votingKey,
-        bytes32 _articleKey,
-        string memory _quizIpfsHash,
-        bool assignToArticleContent
-    )
-        public
-        onlyRole(ADMINISTRATOR)
-        articleShouldExists(_votingKey, _articleKey)
-    {
-        if (assignToArticleContent) {
-            proConArticles[_votingKey][_articleKey]
-                .articleContentCheckQuizIpfsHash = _quizIpfsHash;
-        } else {
-            proConArticles[_votingKey][_articleKey]
-                .responseContentCheckQuizIpfsHash = _quizIpfsHash;
-        }
-    }
-
-    function addKeccak256HashedAnswersToArticle(
-        bytes32 _votingKey,
-        bytes32 _articleKey,
-        bytes32[] memory _keccak256HashedAnswers
-    )
-        public
-        onlyRole(ADMINISTRATOR)
-        hasArticleContentIpfsHashAssigned(_votingKey, _articleKey)
-        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
-    {
-        proConArticles[_votingKey][_articleKey].isArticleApproved = true;
-        articleContentReadCheckAnswers[_articleKey] = _keccak256HashedAnswers;
-    }
-
-    function publishProConArticleResponse(
-        bytes32 _votingKey,
-        bytes32 _proConArticleKey,
-        string memory _ipfsHash
-    )
-        public
-        onlyRole(POLITICAL_ACTOR)
-        votingNotYetStarted(_votingKey)
-        criticisedArticleRelatedToYourVoting(_votingKey, _proConArticleKey)
-    {
-        proConArticles[_votingKey][_proConArticleKey]
-            .responseStatementIpfsHash = _ipfsHash;
-    }
-
-    function addKeccak256HashedAnswersToArticleResponse(
-        bytes32 _votingKey,
-        bytes32 _articleKey,
-        bytes32[] memory _keccak256HashedAnswers
-    )
-        public
-        onlyRole(ADMINISTRATOR)
-        articleShouldExists(_votingKey, _articleKey)
-        hasArticleReponseAssigned(_votingKey, _articleKey)
-        hasArticleResponseContentCheckIpfsHash(_votingKey, _articleKey)
-        votingNotYetStarted(_votingKey)
-        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
-    {
-        articleContentResponseReadCheckAnswers[
-            _articleKey
-        ] = _keccak256HashedAnswers;
-        proConArticles[_votingKey][_articleKey].isResponseApproved = true;
-    }
-
-    function completeContentReadQuiz(
-        uint contentType,
-        bytes32 _votingKey,
-        bytes32 _articleKey,
-        string[] memory _answers
-    ) public onlyRole(CITIZEN) {
-        uint[] memory answerIndexes;
-        bool isCorrect;
-
-        // voting
-        if (contentType == 1) {
-            answerIndexes = getAccountVotingQuizAnswerIndexes(
-                _votingKey,
-                msg.sender
-            );
-
-            isCorrect = isContentReadQuizCorrect(
-                answerIndexes,
-                votingContentReadCheckAnswers[_votingKey],
-                _answers
-            );
-            votes[msg.sender][_votingKey].isContentCompleted = true;
-        }
-        // article
-        else if (contentType == 2) {
-            answerIndexes = getAccountArticleQuizAnswerIndexes(
-                _votingKey,
-                _articleKey,
-                msg.sender
-            );
-
-            isCorrect = isContentReadQuizCorrect(
-                answerIndexes,
-                articleContentReadCheckAnswers[_articleKey],
-                _answers
-            );
-            articlesCompleted[msg.sender].push(_articleKey);
-            // article respond
-        } else if (contentType == 3) {
-            answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
-                _votingKey,
-                _articleKey,
-                msg.sender
-            );
-
-            isCorrect = isContentReadQuizCorrect(
-                answerIndexes,
-                articleContentResponseReadCheckAnswers[_articleKey],
-                _answers
-            );
-
-            articlesResponseCompleted[msg.sender].push(_articleKey);
-        }
-
-        require(isCorrect, "Some of your provided answers are wrong");
-    }
-
     function calculateVoteScore(
         bytes32 _votingKey,
         address _account
@@ -964,6 +806,191 @@ contract BVS_Voting is BVS_Roles {
         votes[msg.sender][_votingKey].voted = true;
     }
 
+    function isVotingWon(
+        bytes32 _votingKey
+    )
+        public
+        view
+        votingNotFinished(_votingKey)
+        votingApproved(_votingKey)
+        enoughVotesArrived(_votingKey)
+        returns (bool)
+    {
+        return
+            votings[_votingKey].voteOnAScore >=
+            votings[_votingKey].voteOnBScore;
+    }
+
+    function publishProConArticle(
+        bytes32 _votingKey,
+        string memory _ipfsHash,
+        bool _isVoteOnA
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        hasCreditsLeftToPublishArticle(_votingKey)
+    {
+        bytes32 articleKey = keccak256(
+            abi.encodePacked(block.timestamp, msg.sender, _ipfsHash)
+        );
+
+        proConArticles[_votingKey][articleKey] = ProConArticle(
+            _votingKey,
+            false,
+            false,
+            msg.sender,
+            _ipfsHash,
+            _isVoteOnA,
+            "",
+            "",
+            ""
+        );
+        articleKeys.push(articleKey);
+        publishArticleToVotingsCount[msg.sender][_votingKey]++;
+    }
+
+    function assignQuizIpfsHashToArticleOrResponse(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string memory _quizIpfsHash,
+        bool assignToArticleContent
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        articleShouldExists(_votingKey, _articleKey)
+    {
+        if (assignToArticleContent) {
+            proConArticles[_votingKey][_articleKey]
+                .articleContentCheckQuizIpfsHash = _quizIpfsHash;
+        } else {
+            proConArticles[_votingKey][_articleKey]
+                .responseContentCheckQuizIpfsHash = _quizIpfsHash;
+        }
+    }
+
+    function addKeccak256HashedAnswersToArticle(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        bytes32[] memory _keccak256HashedAnswers
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        hasArticleContentIpfsHashAssigned(_votingKey, _articleKey)
+        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
+    {
+        proConArticles[_votingKey][_articleKey].isArticleApproved = true;
+        articleContentReadCheckAnswers[_articleKey] = _keccak256HashedAnswers;
+    }
+
+    function publishProConArticleResponse(
+        bytes32 _votingKey,
+        bytes32 _proConArticleKey,
+        string memory _ipfsHash
+    )
+        public
+        onlyRole(POLITICAL_ACTOR)
+        votingNotYetStarted(_votingKey)
+        criticisedArticleRelatedToYourVoting(_votingKey, _proConArticleKey)
+    {
+        proConArticles[_votingKey][_proConArticleKey]
+            .responseStatementIpfsHash = _ipfsHash;
+    }
+
+    function addKeccak256HashedAnswersToArticleResponse(
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        bytes32[] memory _keccak256HashedAnswers
+    )
+        public
+        onlyRole(ADMINISTRATOR)
+        articleShouldExists(_votingKey, _articleKey)
+        hasArticleResponseAssigned(_votingKey, _articleKey)
+        hasArticleResponseContentCheckIpfsHash(_votingKey, _articleKey)
+        votingNotYetStarted(_votingKey)
+        enoughContentReadQuizAnswerAdded(_keccak256HashedAnswers)
+    {
+        articleContentResponseReadCheckAnswers[
+            _articleKey
+        ] = _keccak256HashedAnswers;
+        proConArticles[_votingKey][_articleKey].isResponseApproved = true;
+    }
+
+    function completeContentReadQuiz(
+        uint contentType,
+        bytes32 _votingKey,
+        bytes32 _articleKey,
+        string[] memory _answers
+    ) public onlyRole(CITIZEN) {
+        uint[] memory answerIndexes;
+        bool isCorrect;
+
+        // voting
+        if (contentType == 1) {
+            answerIndexes = getAccountVotingQuizAnswerIndexes(
+                _votingKey,
+                msg.sender
+            );
+
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                votingContentReadCheckAnswers[_votingKey],
+                _answers
+            );
+            votes[msg.sender][_votingKey].isContentCompleted = true;
+        }
+        // article
+        else if (contentType == 2) {
+            answerIndexes = getAccountArticleQuizAnswerIndexes(
+                _votingKey,
+                _articleKey,
+                msg.sender
+            );
+
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                articleContentReadCheckAnswers[_articleKey],
+                _answers
+            );
+            articlesCompleted[msg.sender].push(_articleKey);
+            // article respond
+        } else if (contentType == 3) {
+            answerIndexes = getAccountArticleResponseQuizAnswerIndexes(
+                _votingKey,
+                _articleKey,
+                msg.sender
+            );
+
+            isCorrect = isContentReadQuizCorrect(
+                answerIndexes,
+                articleContentResponseReadCheckAnswers[_articleKey],
+                _answers
+            );
+
+            articlesResponseCompleted[msg.sender].push(_articleKey);
+        }
+
+        require(isCorrect, "Some of your provided answers are wrong");
+    }
+
+    function isContentReadQuizCorrect(
+        uint[] memory _answerIndexes,
+        bytes32[] memory _readCheckAnswers,
+        string[] memory _answers
+    ) public view onlyRole(CITIZEN) returns (bool) {
+        bool areAnswersCorrect = true;
+
+        for (uint i = 0; i < _answerIndexes.length; i++) {
+            if (
+                _readCheckAnswers[_answerIndexes[i] - 1] !=
+                keccak256(bytes(_answers[i]))
+            ) {
+                areAnswersCorrect = false;
+            }
+        }
+
+        return areAnswersCorrect;
+    }
+
     function getAccountVotingQuizAnswerIndexes(
         bytes32 _votingKey,
         address _account
@@ -1014,25 +1041,6 @@ contract BVS_Voting is BVS_Roles {
             );
     }
 
-    function isContentReadQuizCorrect(
-        uint[] memory _answerIndexes,
-        bytes32[] memory _readCheckAnswers,
-        string[] memory _answers
-    ) public view onlyRole(CITIZEN) returns (bool) {
-        bool areAnswersCorrect = true;
-
-        for (uint i = 0; i < _answerIndexes.length; i++) {
-            if (
-                _readCheckAnswers[_answerIndexes[i] - 1] !=
-                keccak256(bytes(_answers[i]))
-            ) {
-                areAnswersCorrect = false;
-            }
-        }
-
-        return areAnswersCorrect;
-    }
-
     function getAccountQuizAnswerIndexes(
         string memory ipfsHash1,
         string memory ipfsHash2,
@@ -1078,32 +1086,6 @@ contract BVS_Voting is BVS_Roles {
         return questionsToAsk;
     }
 
-    function isVotingWon(
-        bytes32 _votingKey,
-        bool _isAWinExpected
-    )
-        public
-        view
-        votingNotFinished(_votingKey)
-        votingApproved(_votingKey)
-        enoughVotesArrived(_votingKey)
-        returns (bool)
-    {
-        if (_isAWinExpected) {
-            return
-                votings[_votingKey].voteOnAScore >=
-                votings[_votingKey].voteOnBScore;
-        } else {
-            return
-                votings[_votingKey].voteOnBScore >
-                votings[_votingKey].voteOnAScore;
-        }
-    }
-
-    function getVoting(bytes32 _votingKey) public view returns (Voting memory) {
-        return votings[_votingKey];
-    }
-
     function getContentReadCheckAnswersLength(
         bytes32 key,
         uint contentType
@@ -1118,15 +1100,19 @@ contract BVS_Voting is BVS_Roles {
         }
     }
 
-    function getVotingKeysLength() public view returns (uint) {
-        return votingKeys.length;
-    }
-
     function getArticleKeysLength() public view returns (uint) {
         return articleKeys.length;
     }
 
-    function getVotinCycleIndexesSize() public view returns (uint) {
+    function getVoting(bytes32 _votingKey) public view returns (Voting memory) {
+        return votings[_votingKey];
+    }
+
+    function getVotingKeysLength() public view returns (uint) {
+        return votingKeys.length;
+    }
+
+    function getVotingCycleIndexesSize() public view returns (uint) {
         return votingCycleIndexes.length;
     }
 
@@ -1136,5 +1122,9 @@ contract BVS_Voting is BVS_Roles {
 
     function getElectionVotersSize() public view returns (uint256) {
         return electionVoters.length;
+    }
+
+    function getContactKeysSize() public view returns (uint256) {
+        return contactKeys.length;
     }
 }

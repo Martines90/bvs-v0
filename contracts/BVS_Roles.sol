@@ -66,8 +66,15 @@ contract BVS_Roles {
         _;
     }
 
-    modifier appliedForCitizenRole(address _account, bytes32 _emailPublicKeyHash, bool _revokeCitizenRole) {
-        if (citizenshipApplications[_account] != _emailPublicKeyHash && !_revokeCitizenRole) {
+    modifier appliedForCitizenRole(
+        address _account,
+        bytes32 _emailPublicKeyHash,
+        bool _revokeCitizenRole
+    ) {
+        if (
+            citizenshipApplications[_account] != _emailPublicKeyHash &&
+            !_revokeCitizenRole
+        ) {
             revert NotAppliedForCitizenRole();
         }
         _;
@@ -251,13 +258,7 @@ contract BVS_Roles {
         }
     }
 
-    function updateCitizenshipRoleApplicationFee(
-        uint value
-    ) public onlyRole(ADMINISTRATOR) {
-        citizenRoleApplicationFee = value;
-    }
-
-    function checkIfAccounthasRole(
+    function checkIfAccountHasRole(
         address _account,
         bytes32 _role
     ) public view returns (bool) {

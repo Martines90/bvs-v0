@@ -179,7 +179,7 @@ export const completeVoting = async (admin: BVS_Voting, voterAccount: SignerWith
 
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
-    if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
+    if (!(await admin.checkIfAccountHasRole(voterAccount.address, Roles.CITIZEN))) {
         await grantCitizenRoleHelper(admin, voterAccount);
     }
 
@@ -198,7 +198,7 @@ export const completeArticle = async (admin: BVS_Voting, voterAccount: SignerWit
 
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
-    if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
+    if (!(await admin.checkIfAccountHasRole(voterAccount.address, Roles.CITIZEN))) {
         grantCitizenRoleHelper(admin, voterAccount);
     }
 
@@ -218,7 +218,7 @@ export const completeArticleResponse = async (admin: BVS_Voting, voterAccount: S
 
     const answers = indexes.map((item: any) => `hashed-answer-${item}`);
 
-    if (!(await admin.checkIfAccounthasRole(voterAccount.address, Roles.CITIZEN))) {
+    if (!(await admin.checkIfAccountHasRole(voterAccount.address, Roles.CITIZEN))) {
         grantCitizenRoleHelper(admin, voterAccount);
     }
 
