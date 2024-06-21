@@ -4,10 +4,26 @@ pragma solidity ^0.8.9;
 import "./interfaces/IChristianState.sol";
 
 contract ChurchCommunity {
+    uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
     uint public constant MAX_NUM_OF_CITIZENS = 1000;
     uint public constant MAX_NUM_OF_ADMINS = 12;
 
-    address public christianStateAddress;
+    uint public immutable communityContractCreationDate;
+    struct CommunityInfo {
+        string websiteUrl;
+        string name;
+        string country;
+        string state;
+        string county;
+        string cityTownVillage;
+        string district;
+        string _address;
+    }
+
+    CommunityInfo public communityInfo;
+    mapping(address => mapping(uint => uint)) public dailyAdminActivityCounter;
+
+    address public immutable christianStateAddress;
     mapping(address => bool) public accountsWithCitizenRole;
     mapping(address => bool) public accountsWithAdminRole;
 
@@ -24,6 +40,8 @@ contract ChurchCommunity {
 
     error MaxNumberOfCitizensLimitAlreadyReached();
 
+    error AdminDailyActivityLimitReached();
+
     modifier onlyCitizen() {
         if (!accountsWithCitizenRole[msg.sender]) {
             revert AccountHasNoCitizenship();
@@ -35,6 +53,15 @@ contract ChurchCommunity {
         if (!accountsWithAdminRole[msg.sender]) {
             revert AccountHasNoAdminRole();
         }
+
+        uint daysPassed = getDaysPassed();
+        if (
+            dailyAdminActivityCounter[msg.sender][daysPassed] + 1 >
+            MAX_DAILY_ADMIN_ACTIVITY
+        ) {
+            revert AdminDailyActivityLimitReached();
+        }
+        dailyAdminActivityCounter[msg.sender][daysPassed]++;
         _;
     }
 
@@ -59,7 +86,9 @@ contract ChurchCommunity {
         _;
     }
 
-    constructor() {
+    constructor(address _stateAddress) {
+        christianStateAddress = _stateAddress;
+        communityContractCreationDate = block.timestamp;
         headOfTheCommunity = msg.sender;
 
         accountsWithCitizenRole[msg.sender] = true;
@@ -68,8 +97,14 @@ contract ChurchCommunity {
         citizens.push(msg.sender);
     }
 
-    function setStateAddress(address _stateAddress) public onlyAdmin {
-        christianStateAddress = _stateAddress;
+    function isCommunityApprovedByState() public view returns (bool) {
+        return
+            IChristianState(christianStateAddress)
+                .isMyCurchCommunityApprovedByState();
+    }
+
+    function setCommunityWebsite(string memory _websiteUrl) public onlyAdmin {
+        communityInfo.websiteUrl = _websiteUrl;
     }
 
     function voteOnStateVoting(bytes32 votingKey) public onlyCitizen {
@@ -102,5 +137,9 @@ contract ChurchCommunity {
                 break;
             }
         }
+    }
+
+    function getDaysPassed() public view returns (uint) {
+        return (block.timestamp - communityContractCreationDate) / 86400;
     }
 }

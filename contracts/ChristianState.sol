@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import "./interfaces/IChristianState.sol";
 
 contract ChristianState is IChristianState {
+    uint immutable level;
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
     string public bankCurrency = "USD";
     string public cryptoCurrency = "ETH";
@@ -18,7 +19,7 @@ contract ChristianState is IChristianState {
     string[] public commonInfoKeys;
 
     uint public electionStartDate;
-    uint public immutable stateContracCreationDate;
+    uint public immutable stateContractCreationDate;
     mapping(address => mapping(uint => uint)) public annualTotalPayments;
     mapping(address => uint) public totalPayments;
 
@@ -45,6 +46,15 @@ contract ChristianState is IChristianState {
         if (!accountsWithAdminRole[msg.sender]) {
             revert AccountHasNoAdminRole();
         }
+
+        uint daysPassed = getDaysPassed();
+        if (
+            dailyAdminActivityCounter[msg.sender][daysPassed] + 1 >
+            MAX_DAILY_ADMIN_ACTIVITY
+        ) {
+            revert AdminDailyActivityLimitReached();
+        }
+        dailyAdminActivityCounter[msg.sender][daysPassed]++;
         _;
     }
 
@@ -62,20 +72,9 @@ contract ChristianState is IChristianState {
         _;
     }
 
-    modifier checkAndCountAdminDailyActivity() {
-        uint daysPassed = getDaysPassed();
-        if (
-            dailyAdminActivityCounter[msg.sender][daysPassed] + 1 >
-            MAX_DAILY_ADMIN_ACTIVITY
-        ) {
-            revert AdminDailyActivityLimitReached();
-        }
-        dailyAdminActivityCounter[msg.sender][daysPassed]++;
-        _;
-    }
-
-    constructor() {
-        stateContracCreationDate = block.timestamp;
+    constructor(uint _level) {
+        level = _level;
+        stateContractCreationDate = block.timestamp;
         accountsWithAdminRole[msg.sender] = true;
         admins.push(msg.sender);
     }
@@ -85,6 +84,10 @@ contract ChristianState is IChristianState {
         bool accepted
     ) public onlyAdmin {
         acceptedChurchCommunities[churchCommunityAddress] = accepted;
+    }
+
+    function isMyCurchCommunityApprovedByState() external view returns (bool) {
+        return acceptedChurchCommunities[msg.sender];
     }
 
     function voteOnVoting(
@@ -110,7 +113,7 @@ contract ChristianState is IChristianState {
 
     function blockChurchCommunity(
         address curchCommunityAddress
-    ) public onlyAdmin checkAndCountAdminDailyActivity {
+    ) public onlyAdmin {
         acceptedChurchCommunities[curchCommunityAddress] = false;
         blockedChurchCommunities.push(curchCommunityAddress);
     }
@@ -118,7 +121,7 @@ contract ChristianState is IChristianState {
     function updateBankData(
         string memory _bankName,
         string memory _bankAccountNumber
-    ) public onlyAdmin checkAndCountAdminDailyActivity {
+    ) public onlyAdmin {
         bankAccountNumber = _bankAccountNumber;
         bankName = _bankName;
     }
@@ -126,7 +129,7 @@ contract ChristianState is IChristianState {
     function updateCryptoData(
         address _walletAddress,
         string memory _cryptoCurrency
-    ) public onlyAdmin checkAndCountAdminDailyActivity {
+    ) public onlyAdmin {
         cryptoWalletAddress = _walletAddress;
         cryptoCurrency = _cryptoCurrency;
     }
@@ -134,7 +137,7 @@ contract ChristianState is IChristianState {
     function updateCommonInfoValue(
         string memory key,
         string memory value
-    ) public onlyAdmin checkAndCountAdminDailyActivity {
+    ) public onlyAdmin {
         commonInfo[key] = value;
         commonInfoKeys.push(key);
     }
@@ -144,6 +147,6 @@ contract ChristianState is IChristianState {
     }
 
     function getDaysPassed() public view returns (uint) {
-        return (block.timestamp - stateContracCreationDate) / 86400;
+        return (block.timestamp - stateContractCreationDate) / 86400;
     }
 }

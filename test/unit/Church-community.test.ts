@@ -4,7 +4,7 @@ import { ChristianState, ChurchCommunity } from "../../typechain-types";
 import { AddressLike } from "ethers";
 import { expect } from "chai";
 
-describe('ChurchCommunity', () => {
+describe('ChurchCommunity - main', () => {
     let christianStateAdmin;
     let churchCommunityAdmin;
     let christianStateContractAddress: AddressLike;
@@ -19,7 +19,7 @@ describe('ChurchCommunity', () => {
     beforeEach(async () => {
         accounts = await ethers.getSigners()
 
-        const deploymentResults = await deployments.fixture(['mocks', 'church_community', 'christian_state']);
+        const deploymentResults = await deployments.fixture(['mocks', 'christian_state_and_curch_community']);
 
         christianStateContractAddress = deploymentResults['ChristianState']?.address;
         churchCommunityContractAddress = deploymentResults['ChurchCommunity']?.address;
@@ -31,12 +31,12 @@ describe('ChurchCommunity', () => {
         churchCommunityAdmin = await churchCommunityContract.connect(accounts[0]);
     });
 
-    describe("setStateAddress", () => {
+    describe("registerCitizen", () => {
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
             const account1 = await churchCommunityContract.connect(accounts[1]);
 
             await expect(
-                account1.setStateAddress(christianStateContractAddress)
+                account1.registerCitizen(accounts[2])
             ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountHasNoAdminRole');
         })
     });
