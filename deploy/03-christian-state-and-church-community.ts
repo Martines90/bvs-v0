@@ -5,6 +5,7 @@ const christianState = async function (hre: HardhatRuntimeEnvironment) {
     const { deploy, log } = deployments;
     const { deployer } = await getNamedAccounts();
 
+
     const christianState = await deploy("ChristianState", {
       from: deployer,
         args: [1],

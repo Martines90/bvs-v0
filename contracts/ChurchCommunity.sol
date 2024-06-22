@@ -2,8 +2,10 @@
 pragma solidity ^0.8.9;
 
 import "./interfaces/IChristianState.sol";
+import "./interfaces/IElections.sol";
+import "./interfaces/IChurchCommunity.sol";
 
-contract ChurchCommunity {
+contract ChurchCommunity is IChurchCommunity {
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
     uint public constant MAX_NUM_OF_CITIZENS = 1000;
     uint public constant MAX_NUM_OF_ADMINS = 12;
@@ -15,6 +17,7 @@ contract ChurchCommunity {
         string country;
         string state;
         string county;
+        string zipcode;
         string cityTownVillage;
         string district;
         string _address;
@@ -32,8 +35,11 @@ contract ChurchCommunity {
 
     address public headOfTheCommunity;
 
+    mapping(uint => bool) yarlyHeadOfCommunityChanged;
+
     error AccountHasNoCitizenship();
     error AccountHasNoAdminRole();
+    error AccountIsNotTheHeadOfTheCommunity();
 
     error ProvidedAccountAlreadyHasCitizenship();
     error ProvidedAccountHasNoCitizenship();
@@ -41,6 +47,8 @@ contract ChurchCommunity {
     error MaxNumberOfCitizensLimitAlreadyReached();
 
     error AdminDailyActivityLimitReached();
+
+    error headOfCommunityAlreadyChangedThisYear();
 
     modifier onlyCitizen() {
         if (!accountsWithCitizenRole[msg.sender]) {
@@ -62,6 +70,20 @@ contract ChurchCommunity {
             revert AdminDailyActivityLimitReached();
         }
         dailyAdminActivityCounter[msg.sender][daysPassed]++;
+        _;
+    }
+
+    modifier onlyHeadOfTheCommunity() {
+        if (msg.sender != headOfTheCommunity) {
+            revert AccountIsNotTheHeadOfTheCommunity();
+        }
+        _;
+    }
+
+    modifier headOfCommunityNotChangedThisYear() {
+        if (yarlyHeadOfCommunityChanged[getYear()]) {
+            revert headOfCommunityAlreadyChangedThisYear();
+        }
         _;
     }
 
@@ -89,7 +111,6 @@ contract ChurchCommunity {
     constructor(address _stateAddress) {
         christianStateAddress = _stateAddress;
         communityContractCreationDate = block.timestamp;
-        headOfTheCommunity = msg.sender;
 
         accountsWithCitizenRole[msg.sender] = true;
         accountsWithAdminRole[msg.sender] = true;
@@ -97,18 +118,40 @@ contract ChurchCommunity {
         citizens.push(msg.sender);
     }
 
-    function isCommunityApprovedByState() public view returns (bool) {
-        return
-            IChristianState(christianStateAddress)
-                .isMyCurchCommunityApprovedByState();
+    function setHeadOfTheCommunity(
+        address _newHeadOfCommunityAccount
+    )
+        public
+        onlyAdmin
+        headOfCommunityNotChangedThisYear
+        accountHasCitizenship(_newHeadOfCommunityAccount)
+    {
+        headOfTheCommunity = _newHeadOfCommunityAccount;
     }
 
-    function setCommunityWebsite(string memory _websiteUrl) public onlyAdmin {
-        communityInfo.websiteUrl = _websiteUrl;
+    function updateCommunityInfo(
+        CommunityInfo memory _communityInfo
+    ) public onlyAdmin {
+        communityInfo = _communityInfo;
     }
 
     function voteOnStateVoting(bytes32 votingKey) public onlyCitizen {
         IChristianState(christianStateAddress).voteOnVoting(votingKey, 100);
+    }
+
+    function voteOnStatePreElection(
+        address candidateAccount
+    ) public onlyCitizen {
+        IChristianState(christianStateAddress).voteOnPreElection(
+            candidateAccount
+        );
+    }
+
+    function voteOnStateElection(address candidateAccount) public onlyCitizen {
+        IChristianState(christianStateAddress).voteOnElection(
+            candidateAccount,
+            100
+        );
     }
 
     function registerCitizen(
@@ -137,6 +180,16 @@ contract ChurchCommunity {
                 break;
             }
         }
+    }
+
+    function applyForElections() public onlyHeadOfTheCommunity {
+        IElections(
+            IChristianState(christianStateAddress).electionsContractAddress()
+        ).applyForElection(msg.sender);
+    }
+
+    function getYear() public view returns (uint) {
+        return (block.timestamp / 31557600) + 1970;
     }
 
     function getDaysPassed() public view returns (uint) {

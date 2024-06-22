@@ -3,8 +3,11 @@ pragma solidity ^0.8.9;
 
 import "./interfaces/IChristianState.sol";
 
+import "./Elections.sol";
+
 contract ChristianState is IChristianState {
     uint immutable level;
+    address public immutable electionsContractAddress;
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
     string public bankCurrency = "USD";
     string public cryptoCurrency = "ETH";
@@ -26,6 +29,9 @@ contract ChristianState is IChristianState {
     mapping(address => bool) public acceptedChurchCommunities;
     address[] churchCommunities;
     address[] blockedChurchCommunities;
+
+    mapping(address => uint) public preElectionScores;
+    mapping(address => uint) public electionScores;
     mapping(bytes32 => uint) public votingScores;
     mapping(address => bool) public accountsWithAdminRole;
     mapping(address => bool) public accountsWithRepresentativeRole;
@@ -73,6 +79,7 @@ contract ChristianState is IChristianState {
     }
 
     constructor(uint _level) {
+        electionsContractAddress = address(new Elections());
         level = _level;
         stateContractCreationDate = block.timestamp;
         accountsWithAdminRole[msg.sender] = true;
@@ -86,8 +93,23 @@ contract ChristianState is IChristianState {
         acceptedChurchCommunities[churchCommunityAddress] = accepted;
     }
 
-    function isMyCurchCommunityApprovedByState() external view returns (bool) {
-        return acceptedChurchCommunities[msg.sender];
+    function isChurchCommunityApprovedByState(
+        address churchCommunityAddress
+    ) external view returns (bool) {
+        return acceptedChurchCommunities[churchCommunityAddress];
+    }
+
+    function voteOnPreElection(
+        address candidateAccount
+    ) external onlyAcceptedChurchCommunity(msg.sender) {
+        preElectionScores[candidateAccount] += 1;
+    }
+
+    function voteOnElection(
+        address candidateAccount,
+        uint voteScore
+    ) external onlyAcceptedChurchCommunity(msg.sender) {
+        electionScores[candidateAccount] += voteScore;
     }
 
     function voteOnVoting(

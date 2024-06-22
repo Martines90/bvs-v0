@@ -5,16 +5,15 @@ import { AddressLike } from "ethers";
 import { expect } from "chai";
 
 describe('ChurchCommunity - main', () => {
-    let christianStateAdmin;
-    let churchCommunityAdmin;
+    let christianStateAdmin: ChristianState;
+    let churchCommunityAdmin: ChurchCommunity;
     let christianStateContractAddress: AddressLike;
     let churchCommunityContractAddress: AddressLike;
 
     let accounts: SignerWithAddress[];
 
-
-    let churchCommunityContract: ChurchCommunity;
     let christianStateContract: ChristianState;
+    let churchCommunityContract: ChurchCommunity;
 
     beforeEach(async () => {
         accounts = await ethers.getSigners()
@@ -38,6 +37,12 @@ describe('ChurchCommunity - main', () => {
             await expect(
                 account1.registerCitizen(accounts[2])
             ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountHasNoAdminRole');
+        })
+
+        it("should not get reverted when Account has ADMINISTRATOR role", async () => {
+            await expect(
+                churchCommunityAdmin.registerCitizen(accounts[2])
+            ).not.to.be.reverted;
         })
     });
 })
