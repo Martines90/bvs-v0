@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
 interface IChristianState {
     function voteOnVoting(bytes32 votingKey, uint votingScore) external;
 

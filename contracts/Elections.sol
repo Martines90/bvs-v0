@@ -23,11 +23,20 @@ contract Elections is IElections {
 
     error ElectionNotYetScheduled();
     error PreElectionStartAlreadyPassed();
+    error PreElectionPeriodIsNotYetOpen();
 
     mapping(address => uint) preElectionCandidateVoteScores;
     address[] preElectionCandidates;
 
     uint public electionStartDate;
+
+    struct CandidateInfo {
+        address churchCommunityAddress;
+        string programShortVersionIpfsHash;
+        string programLongVersionIpfsHash;
+    }
+
+    mapping(address => CandidateInfo) candidatesInfo;
 
     modifier churchCommunityApprovedByState() {
         if (
@@ -76,21 +85,42 @@ contract Elections is IElections {
         _;
     }
 
+    modifier preElectionApplicationPeriodIsOpen() {
+        if (
+            electionStartDate -
+                PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS >
+            block.timestamp
+        ) {
+            revert PreElectionPeriodIsNotYetOpen();
+        }
+        _;
+    }
+
     constructor() {
         stateAddress = msg.sender;
     }
 
     function applyForElection(
-        address headOfTheChurchCommuntiyAccount
+        address headOfTheChurchCommuntiyAccount,
+        string memory _programShortVersionIpfsHash,
+        string memory _programLongVersionIpfsHash
     )
         public
         churchCommunityApprovedByState
         electionScheduled
+        preElectionApplicationPeriodIsOpen
         preElectionIsNotYetPassed
         accountIsHeadOfChurchCommunity(headOfTheChurchCommuntiyAccount)
         applicantNotAppliedForPreElection(headOfTheChurchCommuntiyAccount)
     {
         preElectionCandidates.push(headOfTheChurchCommuntiyAccount);
         preElectionCandidateVoteScores[headOfTheChurchCommuntiyAccount] = 1;
+
+        candidatesInfo[headOfTheChurchCommuntiyAccount]
+            .churchCommunityAddress = msg.sender;
+        candidatesInfo[headOfTheChurchCommuntiyAccount]
+            .programShortVersionIpfsHash = _programShortVersionIpfsHash;
+        candidatesInfo[headOfTheChurchCommuntiyAccount]
+            .programLongVersionIpfsHash = _programLongVersionIpfsHash;
     }
 }
