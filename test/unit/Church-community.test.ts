@@ -298,6 +298,12 @@ describe('ChurchCommunity - main', () => {
         })
 
         it("should properly update community info", async () => {
+            expect(
+                await churchCommunityAdmin.communityInfo()
+            ).to.deep.equal(Object.keys(mockCommunityInfo).map(
+                (key: string) => ''
+            ));
+            
             await churchCommunityContract.updateCommunityInfo(mockCommunityInfo);
 
             expect(
