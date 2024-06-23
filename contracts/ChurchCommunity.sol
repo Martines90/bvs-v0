@@ -260,7 +260,7 @@ contract ChurchCommunity is IChurchCommunity {
     function applyForElections(
         string memory _programShortVersionIpfsHash,
         string memory _programLongVersionIpfsHash
-    ) public onlyHeadOfTheCommunity {
+    ) public onlyHeadOfTheCommunity onlyAdminOnce {
         IElections(
             IChristianState(christianStateAddress).electionsContractAddress()
         ).applyForElection(

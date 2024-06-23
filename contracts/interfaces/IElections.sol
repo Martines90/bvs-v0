@@ -9,4 +9,6 @@ interface IElections {
     ) external;
 
     function electionStartDate() external view returns (uint);
+
+    function setElectionStartDate(uint startDate) external;
 }

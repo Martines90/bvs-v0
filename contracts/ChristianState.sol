@@ -140,6 +140,10 @@ contract ChristianState is IChristianState {
         blockedChurchCommunities.push(curchCommunityAddress);
     }
 
+    function setElectionStartDate(uint startDate) public onlyAdmin {
+        IElections(electionsContractAddress).setElectionStartDate(startDate);
+    }
+
     function updateBankData(
         string memory _bankName,
         string memory _bankAccountNumber

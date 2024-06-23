@@ -16,6 +16,9 @@ contract Elections is IElections {
     uint public constant PRE_ELECTIONS_ELECTIONS_GAP_DAYS = 10 days;
 
     address public immutable stateAddress;
+    address public immutable contractAddress;
+
+    error AccountHasToBeTheState();
 
     error ChurchCommunityNotApprovedByState();
     error AccountIsNotTheHeadOfTheCurchCommunity();
@@ -37,6 +40,13 @@ contract Elections is IElections {
     }
 
     mapping(address => CandidateInfo) candidatesInfo;
+
+    modifier onlyState() {
+        if (msg.sender != stateAddress) {
+            revert AccountHasToBeTheState();
+        }
+        _;
+    }
 
     modifier churchCommunityApprovedByState() {
         if (
@@ -97,7 +107,12 @@ contract Elections is IElections {
     }
 
     constructor() {
+        contractAddress = address(this);
         stateAddress = msg.sender;
+    }
+
+    function setElectionStartDate(uint startDate) public onlyState {
+        electionStartDate = startDate;
     }
 
     function applyForElection(

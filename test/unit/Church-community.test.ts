@@ -1,10 +1,10 @@
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { deployments, ethers } from "hardhat";
-import { ChristianState, ChurchCommunity } from "../../typechain-types";
+import { ChristianState, ChurchCommunity, Elections } from "../../typechain-types";
 import { AddressLike } from "ethers";
 import { expect } from "chai";
 import assert from "assert";
-import { TimeQuantities } from "../../utils/helpers2";
+import { FAR_FUTURE_DATE, TimeQuantities } from "../../utils/helpers2";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const registerCitizens = async (admin: SignerWithAddress, accounts: SignerWithAddress[]) => {
@@ -24,22 +24,28 @@ describe('ChurchCommunity - main', () => {
     let churchCommunityAdmin: ChurchCommunity;
     let christianStateContractAddress: AddressLike;
     let churchCommunityContractAddress: AddressLike;
+    let electionsContractAddress: AddressLike;
 
     let accounts: SignerWithAddress[];
 
     let christianStateContract: ChristianState;
     let churchCommunityContract: ChurchCommunity;
+    let electionsContract: Elections;
 
     beforeEach(async () => {
+        time.increaseTo(FAR_FUTURE_DATE);
+
         accounts = await ethers.getSigners()
 
         const deploymentResults = await deployments.fixture(['mocks', 'christian_state_and_curch_community']);
 
         christianStateContractAddress = deploymentResults['ChristianState']?.address;
         churchCommunityContractAddress = deploymentResults['ChurchCommunity']?.address;
+        electionsContractAddress = deploymentResults['Elections']?.address;
 
         christianStateContract = await ethers.getContractAt('ChristianState', christianStateContractAddress);
         churchCommunityContract = await ethers.getContractAt('ChurchCommunity', churchCommunityContractAddress);
+        electionsContract = await ethers.getContractAt('Elections', electionsContractAddress);
 
         christianStateAdmin = await christianStateContract.connect(accounts[0]);
         churchCommunityAdmin = await churchCommunityContract.connect(accounts[0]);
@@ -124,7 +130,7 @@ describe('ChurchCommunity - main', () => {
         it("should get reverted when account already has admin role", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             await expect(
                 churchCommunityAdmin.addAdmin(accounts[1])
@@ -134,7 +140,7 @@ describe('ChurchCommunity - main', () => {
         it("should get reverted when account try add another admin within the admin activity freeze limit", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
 
 
             await expect(
@@ -151,7 +157,7 @@ describe('ChurchCommunity - main', () => {
             assert.equal(await churchCommunityAdmin.getAdminsSize(), BigInt(2))
             assert.equal(await churchCommunityAdmin.accountsWithAdminRole(accounts[2]), true)
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             await churchCommunityAdmin.addAdmin(accounts[3])
 
@@ -178,7 +184,7 @@ describe('ChurchCommunity - main', () => {
         it("should get reverted when admin try remove the admin within the admin activity freeze limit", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
 
 
             await expect(
@@ -190,7 +196,7 @@ describe('ChurchCommunity - main', () => {
             await churchCommunityAdmin.addAdmin(accounts[1])
             assert.equal(await churchCommunityAdmin.getAdminsSize(), BigInt(2))
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+            await time.increase(BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT);
 
             await churchCommunityAdmin.removeAdmin(accounts[1])
 
@@ -198,19 +204,6 @@ describe('ChurchCommunity - main', () => {
             assert.equal(await churchCommunityAdmin.accountsWithAdminRole(accounts[1]), false)
         })
     });
-
-    /*
-    function setHeadOfTheCommunity(
-        address _newHeadOfCommunityAccount
-    )
-        public
-        onlyAdminOnce
-        newStateElectionNotScheduled
-        accountHasAdminRole(_newHeadOfCommunityAccount)
-    {
-        headOfTheCommunity = _newHeadOfCommunityAccount;
-    }
-    */
 
     describe("setHeadOfTheCommunity", () => {
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
@@ -222,20 +215,21 @@ describe('ChurchCommunity - main', () => {
         })
 
         it("should get reverted when state election already scheduled", async () => {
-           /* FIXME: complete this test when Elections contract electionStartDate can be set
+            await christianStateAdmin.setElectionStartDate(FAR_FUTURE_DATE + TimeQuantities.YEAR);
+
             await churchCommunityAdmin.addAdmin(accounts[2])
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             await expect(
                 churchCommunityAdmin.setHeadOfTheCommunity(accounts[2])
             ).to.be.revertedWithCustomError(churchCommunityContract, 'NewStateElectionAlreadyScheduled');
-            */
         })
 
         it("should get reverted when admin try remove the admin within the admin activity freeze limit", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
-
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
 
             await expect(
                 churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
@@ -251,7 +245,7 @@ describe('ChurchCommunity - main', () => {
         it("should properly set the head of the community", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1])
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             await churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
 
@@ -289,7 +283,7 @@ describe('ChurchCommunity - main', () => {
         it("should get reverted when admin try remove the admin within the admin activity freeze limit", async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
-            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
 
 
             await expect(
@@ -303,7 +297,7 @@ describe('ChurchCommunity - main', () => {
             ).to.deep.equal(Object.keys(mockCommunityInfo).map(
                 (key: string) => ''
             ));
-            
+
             await churchCommunityContract.updateCommunityInfo(mockCommunityInfo);
 
             expect(
@@ -311,6 +305,62 @@ describe('ChurchCommunity - main', () => {
             ).to.deep.equal(Object.keys(mockCommunityInfo).map(
                 (key: string) => (mockCommunityInfo as any)[key]
             ));
+        })
+    })
+
+    /*
+    
+    function applyForElections(
+        string memory _programShortVersionIpfsHash,
+        string memory _programLongVersionIpfsHash
+    ) public onlyHeadOfTheCommunity {
+        IElections(
+            IChristianState(christianStateAddress).electionsContractAddress()
+        ).applyForElection(
+                msg.sender,
+                _programShortVersionIpfsHash,
+                _programLongVersionIpfsHash
+            );
+    }
+    
+    */
+
+    describe("applyForElections", () => {
+        beforeEach(async () => {
+            churchCommunityAdmin.addAdmin(accounts[1]);
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+
+            churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
+        })
+        it("should get reverted when Account is not the head of the community", async () => {
+            await expect(
+                churchCommunityAdmin.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountIsNotTheHeadOfTheCommunity');
+        })
+
+        /*
+        
+        public
+        churchCommunityApprovedByState
+        electionScheduled
+        preElectionApplicationPeriodIsOpen
+        preElectionIsNotYetPassed
+        accountIsHeadOfChurchCommunity(headOfTheChurchCommuntiyAccount)
+        applicantNotAppliedForPreElection(headOfTheChurchCommuntiyAccount)
+        
+        */
+
+        it("should get reverted when Church community is not approved by the state", async () => {
+            await expect(
+                churchCommunityAdmin.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(electionsContract, 'ChurchCommunityNotApprovedByState');
         })
     })
 })

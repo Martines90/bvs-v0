@@ -13,4 +13,8 @@ interface IChristianState {
     ) external view returns (bool);
 
     function electionsContractAddress() external view returns (address);
+
+    function accountsWithAdminRole(
+        address adminAccount
+    ) external view returns (bool);
 }
