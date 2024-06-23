@@ -264,4 +264,47 @@ describe('ChurchCommunity - main', () => {
             assert.equal(await churchCommunityAdmin.headOfTheCommunity(), accounts[0].address);
         })
     })
+
+    describe("setHeadOfTheCommunity", () => {
+        const mockCommunityInfo: ChurchCommunity.CommunityInfoStruct = {
+            websiteUrl: 'https://www.test-website.com',
+            name: 'Christ First Church',
+            country: 'United States',
+            state: 'Oklahoma',
+            county: '',
+            zipcode: 'OK 73644',
+            cityTownVillage: 'Elk City',
+            district: '',
+            _address: '1221 Pioneer Rd'
+        };
+
+        it("should get reverted when Account is not an ADMINISTRATOR", async () => {
+            const account1 = await churchCommunityContract.connect(accounts[1]);
+
+            await expect(
+                account1.updateCommunityInfo(mockCommunityInfo)
+            ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountHasNoAdminRole');
+        })
+
+        it("should get reverted when admin try remove the admin within the admin activity freeze limit", async () => {
+            await churchCommunityAdmin.addAdmin(accounts[1]);
+
+            await time.increaseTo(contractCreationDate + (BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT) - BigInt(TimeQuantities.HOUR));
+
+
+            await expect(
+                churchCommunityAdmin.updateCommunityInfo(mockCommunityInfo)
+            ).to.be.revertedWithCustomError(churchCommunityContract, 'AdminDailyActivityLimitReached');
+        })
+
+        it("should properly update community info", async () => {
+            await churchCommunityContract.updateCommunityInfo(mockCommunityInfo);
+
+            expect(
+                await churchCommunityAdmin.communityInfo()
+            ).to.deep.equal(Object.keys(mockCommunityInfo).map(
+                (key: string) => (mockCommunityInfo as any)[key]
+            ));
+        })
+    })
 })

@@ -173,7 +173,7 @@ contract ChurchCommunity is IChurchCommunity {
 
     function updateCommunityInfo(
         CommunityInfo memory _communityInfo
-    ) public onlyAdmin {
+    ) public onlyAdminOnce {
         communityInfo = _communityInfo;
     }
 
