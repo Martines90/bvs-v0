@@ -27,6 +27,7 @@ contract ChurchCommunity is IChurchCommunity {
         string _address;
     }
 
+    address public immutable communityContractAddress;
     CommunityInfo public communityInfo;
     mapping(address => mapping(uint => uint)) public dailyAdminActivityCounter;
 
@@ -152,6 +153,7 @@ contract ChurchCommunity is IChurchCommunity {
 
     constructor(address _stateAddress) {
         christianStateAddress = _stateAddress;
+        communityContractAddress = address(this);
         communityContractCreationDate = block.timestamp;
 
         accountsWithCitizenRole[msg.sender] = true;

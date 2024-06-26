@@ -9,6 +9,11 @@ contract ChristianState is IChristianState {
     uint immutable level;
     address public immutable electionsContractAddress;
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
+    uint public constant CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = 3;
+
+    uint public constant MAIN_PRIO_REQUIRED_ADMIN_APPROVALS = 5;
+    uint public constant NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT = 7;
+
     string public bankCurrency = "USD";
     string public cryptoCurrency = "ETH";
     address public cryptoWalletAddress;
@@ -25,6 +30,9 @@ contract ChristianState is IChristianState {
     uint public immutable stateContractCreationDate;
     mapping(address => mapping(uint => uint)) public annualTotalPayments;
     mapping(address => uint) public totalPayments;
+
+    mapping(string => mapping(uint => uint))
+        public adminAttemptsOnMethodCallUintVAL;
 
     mapping(address => bool) public acceptedChurchCommunities;
     address[] churchCommunities;
@@ -45,6 +53,7 @@ contract ChristianState is IChristianState {
     error AddressBelongsToNonAcceptedChurchCommunity();
     error AddressBelongsToAnAlreadyAcceptedChurchCommunity();
     error AccountHasNoAdminRole();
+    error ProvidedAccountHasAdminRole();
 
     error AdminDailyActivityLimitReached();
 
@@ -61,6 +70,34 @@ contract ChristianState is IChristianState {
             revert AdminDailyActivityLimitReached();
         }
         dailyAdminActivityCounter[msg.sender][daysPassed]++;
+        _;
+    }
+
+    modifier onlyAdminOnce() {
+        if (!accountsWithAdminRole[msg.sender]) {
+            revert AccountHasNoAdminRole();
+        }
+
+        uint daysPassed = getDaysPassed();
+        if (
+            dailyAdminActivityCounter[msg.sender][daysPassed] + 1 >
+            MAX_DAILY_ADMIN_ACTIVITY
+        ) {
+            revert AdminDailyActivityLimitReached();
+        }
+
+        for (uint i = 0; i < CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT; i++) {
+            dailyAdminActivityCounter[msg.sender][
+                daysPassed + i
+            ] = MAX_DAILY_ADMIN_ACTIVITY;
+        }
+        _;
+    }
+
+    modifier accountHasNoAdminRole(address _account) {
+        if (accountsWithAdminRole[_account]) {
+            revert ProvidedAccountHasAdminRole();
+        }
         _;
     }
 
@@ -84,6 +121,18 @@ contract ChristianState is IChristianState {
         stateContractCreationDate = block.timestamp;
         accountsWithAdminRole[msg.sender] = true;
         admins.push(msg.sender);
+    }
+
+    function addAdmin(address accountAddress) public onlyAdminOnce {
+        uint daysPassed = getDaysPassed();
+        for (uint i = 0; i < NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT; i++) {
+            dailyAdminActivityCounter[accountAddress][
+                daysPassed + i
+            ] = MAX_DAILY_ADMIN_ACTIVITY;
+        }
+
+        accountsWithAdminRole[accountAddress] = true;
+        admins.push(accountAddress);
     }
 
     function modifyChurchCommunityState(
@@ -140,8 +189,23 @@ contract ChristianState is IChristianState {
         blockedChurchCommunities.push(curchCommunityAddress);
     }
 
-    function setElectionStartDate(uint startDate) public onlyAdmin {
-        IElections(electionsContractAddress).setElectionStartDate(startDate);
+    function setElectionStartDate(uint startDate) public onlyAdminOnce {
+        if (
+            adminAttemptsOnMethodCallUintVAL["setElectionStartDate"][
+                startDate
+            ] >= MAIN_PRIO_REQUIRED_ADMIN_APPROVALS
+        ) {
+            IElections(electionsContractAddress).setElectionStartDate(
+                startDate
+            );
+            adminAttemptsOnMethodCallUintVAL["setElectionStartDate"][
+                startDate
+            ] = 0;
+        } else {
+            adminAttemptsOnMethodCallUintVAL["setElectionStartDate"][
+                startDate
+            ]++;
+        }
     }
 
     function updateBankData(

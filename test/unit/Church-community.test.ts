@@ -7,11 +7,8 @@ import assert from "assert";
 import { FAR_FUTURE_DATE, TimeQuantities } from "../../utils/helpers2";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
-const registerCitizens = async (admin: SignerWithAddress, accounts: SignerWithAddress[]) => {
-
-}
-
 describe('ChurchCommunity - main', () => {
+    let S_MAIN_PRIO_REQUIRED_ADMIN_APPROVALS: bigint;
     let MAX_DAILY_ADMIN_ACTIVITY: bigint;
     let MAX_NUM_OF_CITIZENS: bigint;
     let MAX_NUM_OF_ADMINS: bigint;
@@ -41,10 +38,11 @@ describe('ChurchCommunity - main', () => {
 
         christianStateContractAddress = deploymentResults['ChristianState']?.address;
         churchCommunityContractAddress = deploymentResults['ChurchCommunity']?.address;
-        electionsContractAddress = deploymentResults['Elections']?.address;
 
         christianStateContract = await ethers.getContractAt('ChristianState', christianStateContractAddress);
         churchCommunityContract = await ethers.getContractAt('ChurchCommunity', churchCommunityContractAddress);
+
+        electionsContractAddress = await christianStateContract.electionsContractAddress();
         electionsContract = await ethers.getContractAt('Elections', electionsContractAddress);
 
         christianStateAdmin = await christianStateContract.connect(accounts[0]);
@@ -58,8 +56,28 @@ describe('ChurchCommunity - main', () => {
         NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT = await churchCommunityAdmin.NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT();
         CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = await churchCommunityAdmin.CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT();
 
+        S_MAIN_PRIO_REQUIRED_ADMIN_APPROVALS = await christianStateAdmin.MAIN_PRIO_REQUIRED_ADMIN_APPROVALS();
+
         contractCreationDate = await churchCommunityAdmin.communityContractCreationDate();
     });
+
+    const addAdmins = async (admin: ChristianState, accounts: SignerWithAddress[], from: number = 1, to: number) => {
+        for (let i = from; i < to; i++) {
+            await admin.addAdmin(accounts[i].address);
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+        }
+
+        await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+    }
+    
+    const executeNAdminAttemptsOnStateSetElectionsStartDateMethod = async (date: bigint, admins: SignerWithAddress[]) => {
+        for (let i = 0; i < admins.length; i++) {
+            const admin = await christianStateContract.connect(admins[i]);
+
+            await admin.setElectionStartDate(date);
+        }
+    }
+    
 
     describe("registerCitizen", () => {
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
@@ -325,13 +343,13 @@ describe('ChurchCommunity - main', () => {
     
     */
 
-    describe("applyForElections", () => {
+    describe.only("applyForElections", () => {
         beforeEach(async () => {
-            churchCommunityAdmin.addAdmin(accounts[1]);
+            await churchCommunityAdmin.addAdmin(accounts[1]);
 
             await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
-            churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
+            await churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
         })
         it("should get reverted when Account is not the head of the community", async () => {
             await expect(
@@ -355,12 +373,58 @@ describe('ChurchCommunity - main', () => {
         */
 
         it("should get reverted when Church community is not approved by the state", async () => {
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+
             await expect(
-                churchCommunityAdmin.applyForElections(
+                headOfTheCommunity.applyForElections(
                     'program-short-version-ipfs-hash',
                     'program-long-version-ipfs-hash'
                 )
             ).to.be.revertedWithCustomError(electionsContract, 'ChurchCommunityNotApprovedByState');
+        })
+
+
+        it("should get reverted when elections not yet scheduled", async () => {
+            const churchCommunityAddress = await churchCommunityAdmin.communityContractAddress();
+
+            await christianStateAdmin.registerChurchCommunity(churchCommunityAddress);
+
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+
+            await expect(
+                headOfTheCommunity.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(electionsContract, 'ElectionNotYetScheduled');
+        })
+
+
+        it("should get reverted when pre election period is not open", async () => {
+            await addAdmins(christianStateAdmin, accounts, 1, 10);
+
+            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(BigInt(FAR_FUTURE_DATE + 3 * TimeQuantities.MONTH), accounts.slice(0, 10));
+
+            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+
+            const churchCommunityAddress = await churchCommunityAdmin.communityContractAddress();
+
+            await christianStateAdmin.registerChurchCommunity(churchCommunityAddress);
+
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+
+            await expect(
+                headOfTheCommunity.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(electionsContract, 'ElectionNotYetScheduled');
         })
     })
 })
