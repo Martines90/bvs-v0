@@ -9,6 +9,10 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe('ChurchCommunity - main', () => {
     let S_MAIN_PRIO_REQUIRED_ADMIN_APPROVALS: bigint;
+
+
+    let E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS: bigint;
+
     let MAX_DAILY_ADMIN_ACTIVITY: bigint;
     let MAX_NUM_OF_CITIZENS: bigint;
     let MAX_NUM_OF_ADMINS: bigint;
@@ -17,6 +21,7 @@ describe('ChurchCommunity - main', () => {
     let CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT: bigint;
 
     let christianStateAdmin: ChristianState;
+    let electionsAdmin: Elections;
     let contractCreationDate: bigint;
     let churchCommunityAdmin: ChurchCommunity;
     let christianStateContractAddress: AddressLike;
@@ -47,6 +52,7 @@ describe('ChurchCommunity - main', () => {
 
         christianStateAdmin = await christianStateContract.connect(accounts[0]);
         churchCommunityAdmin = await churchCommunityContract.connect(accounts[0]);
+        electionsAdmin = await electionsContract.connect(accounts[0]);
 
         // get constants value
         MAX_DAILY_ADMIN_ACTIVITY = await churchCommunityAdmin.MAX_DAILY_ADMIN_ACTIVITY();
@@ -56,7 +62,12 @@ describe('ChurchCommunity - main', () => {
         NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT = await churchCommunityAdmin.NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT();
         CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = await churchCommunityAdmin.CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT();
 
+        // state constants
         S_MAIN_PRIO_REQUIRED_ADMIN_APPROVALS = await christianStateAdmin.MAIN_PRIO_REQUIRED_ADMIN_APPROVALS();
+
+        // elections constants
+
+        E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS = await electionsAdmin.PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS();
 
         contractCreationDate = await churchCommunityAdmin.communityContractCreationDate();
     });
@@ -407,9 +418,12 @@ describe('ChurchCommunity - main', () => {
         it("should get reverted when pre election period is not open", async () => {
             await addAdmins(christianStateAdmin, accounts, 1, 10);
 
-            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(BigInt(FAR_FUTURE_DATE + 3 * TimeQuantities.MONTH), accounts.slice(0, 10));
+            const electionsStartDate = BigInt(FAR_FUTURE_DATE + TimeQuantities.YEAR);
 
-            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(electionsStartDate, accounts.slice(0, 10));
+
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             const churchCommunityAddress = await churchCommunityAdmin.communityContractAddress();
 
@@ -417,14 +431,15 @@ describe('ChurchCommunity - main', () => {
 
             const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
 
-            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+            await time.increaseTo(electionsStartDate - E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS - BigInt(TimeQuantities.DAY));
+
 
             await expect(
                 headOfTheCommunity.applyForElections(
                     'program-short-version-ipfs-hash',
                     'program-long-version-ipfs-hash'
                 )
-            ).to.be.revertedWithCustomError(electionsContract, 'ElectionNotYetScheduled');
+            ).to.be.revertedWithCustomError(electionsContract, 'PreElectionPeriodIsNotYetOpen');
         })
     })
 })
