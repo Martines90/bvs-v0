@@ -6,6 +6,9 @@ import "./interfaces/IChristianState.sol";
 import "./Elections.sol";
 
 contract ChristianState is IChristianState {
+    // to add:
+    // mapping(string => bool) public acceptedWebsites;
+
     uint immutable level;
     address public immutable electionsContractAddress;
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;

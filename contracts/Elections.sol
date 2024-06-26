@@ -28,7 +28,8 @@ contract Elections is IElections {
 
     error ElectionNotYetScheduled();
     error PreElectionStartAlreadyPassed();
-    error PreElectionPeriodIsNotYetOpen();
+    error PreElectionApplicationPeriodIsNotYetStarted();
+    error PreElectionApplicationPeriodIsAlreadyFinished();
 
     mapping(address => uint) preElectionCandidateVoteScores;
     address[] preElectionCandidates;
@@ -61,16 +62,6 @@ contract Elections is IElections {
         _;
     }
 
-    modifier accountIsHeadOfChurchCommunity(address applicantAccount) {
-        if (
-            IChurchCommunity(msg.sender).headOfTheCommunity() !=
-            applicantAccount
-        ) {
-            revert AccountIsNotTheHeadOfTheCurchCommunity();
-        }
-        _;
-    }
-
     modifier applicantNotAppliedForPreElection(address applicantAddress) {
         if (preElectionCandidateVoteScores[applicantAddress] != 0) {
             revert AccountAlreadyAppliedForPreElection();
@@ -85,25 +76,20 @@ contract Elections is IElections {
         _;
     }
 
-    modifier preElectionIsNotYetPassed() {
-        if (
-            electionStartDate -
-                PRE_ELECTIONS_VOTING_DAYS -
-                PRE_ELECTIONS_ELECTIONS_GAP_DAYS <
-            block.timestamp
-        ) {
-            revert PreElectionStartAlreadyPassed();
-        }
-        _;
-    }
-
-    modifier preElectionApplicationPeriodIsOpen() {
+    modifier preElectionApplicationPeriodIsOngoing() {
         if (
             electionStartDate -
                 PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS >
             block.timestamp
         ) {
-            revert PreElectionPeriodIsNotYetOpen();
+            revert PreElectionApplicationPeriodIsNotYetStarted();
+        } else if (
+            electionStartDate -
+                PRE_ELECTIONS_VOTING_DAYS -
+                PRE_ELECTIONS_ELECTIONS_GAP_DAYS <
+            block.timestamp
+        ) {
+            revert PreElectionApplicationPeriodIsAlreadyFinished();
         }
         _;
     }
@@ -125,9 +111,7 @@ contract Elections is IElections {
         public
         churchCommunityApprovedByState
         electionScheduled
-        preElectionApplicationPeriodIsOpen
-        preElectionIsNotYetPassed
-        accountIsHeadOfChurchCommunity(headOfTheChurchCommuntiyAccount)
+        preElectionApplicationPeriodIsOngoing
         applicantNotAppliedForPreElection(headOfTheChurchCommuntiyAccount)
     {
         preElectionCandidates.push(headOfTheChurchCommuntiyAccount);

@@ -12,6 +12,8 @@ describe('ChurchCommunity - main', () => {
 
 
     let E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS: bigint;
+    let E_PRE_ELECTIONS_VOTING_DAYS: bigint;
+    let E_PRE_ELECTIONS_ELECTIONS_GAP_DAYS: bigint;
 
     let MAX_DAILY_ADMIN_ACTIVITY: bigint;
     let MAX_NUM_OF_CITIZENS: bigint;
@@ -68,6 +70,8 @@ describe('ChurchCommunity - main', () => {
         // elections constants
 
         E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS = await electionsAdmin.PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS();
+        E_PRE_ELECTIONS_VOTING_DAYS = await electionsAdmin.PRE_ELECTIONS_VOTING_DAYS();
+        E_PRE_ELECTIONS_ELECTIONS_GAP_DAYS = await electionsAdmin.PRE_ELECTIONS_ELECTIONS_GAP_DAYS();
 
         contractCreationDate = await churchCommunityAdmin.communityContractCreationDate();
     });
@@ -371,18 +375,6 @@ describe('ChurchCommunity - main', () => {
             ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountIsNotTheHeadOfTheCommunity');
         })
 
-        /*
-        
-        public
-        churchCommunityApprovedByState
-        electionScheduled
-        preElectionApplicationPeriodIsOpen
-        preElectionIsNotYetPassed
-        accountIsHeadOfChurchCommunity(headOfTheChurchCommuntiyAccount)
-        applicantNotAppliedForPreElection(headOfTheChurchCommuntiyAccount)
-        
-        */
-
         it("should get reverted when Church community is not approved by the state", async () => {
             const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
 
@@ -415,7 +407,7 @@ describe('ChurchCommunity - main', () => {
         })
 
 
-        it("should get reverted when pre election period is not open", async () => {
+        it("should get reverted when pre election application period is not yet started or already finished", async () => {
             await addAdmins(christianStateAdmin, accounts, 1, 10);
 
             const electionsStartDate = BigInt(FAR_FUTURE_DATE + TimeQuantities.YEAR);
@@ -433,13 +425,55 @@ describe('ChurchCommunity - main', () => {
 
             await time.increaseTo(electionsStartDate - E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS - BigInt(TimeQuantities.DAY));
 
+            await expect(
+                headOfTheCommunity.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(electionsContract, 'PreElectionApplicationPeriodIsNotYetStarted');
+
+            await time.increaseTo(electionsStartDate - E_PRE_ELECTIONS_VOTING_DAYS - E_PRE_ELECTIONS_ELECTIONS_GAP_DAYS + BigInt(TimeQuantities.DAY));
 
             await expect(
                 headOfTheCommunity.applyForElections(
                     'program-short-version-ipfs-hash',
                     'program-long-version-ipfs-hash'
                 )
-            ).to.be.revertedWithCustomError(electionsContract, 'PreElectionPeriodIsNotYetOpen');
+            ).to.be.revertedWithCustomError(electionsContract, 'PreElectionApplicationPeriodIsAlreadyFinished');
+
+        })
+
+        it("should get reverted when applicant already applied for pre elections", async () => {
+            await addAdmins(christianStateAdmin, accounts, 1, 10);
+
+            const electionsStartDate = BigInt(FAR_FUTURE_DATE + TimeQuantities.YEAR);
+
+            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(electionsStartDate, accounts.slice(0, 10));
+
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+
+            const churchCommunityAddress = await churchCommunityAdmin.communityContractAddress();
+
+            await christianStateAdmin.registerChurchCommunity(churchCommunityAddress);
+
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await time.increaseTo(electionsStartDate - E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS + BigInt(TimeQuantities.DAY));
+
+            await headOfTheCommunity.applyForElections(
+                'program-short-version-ipfs-hash',
+                'program-long-version-ipfs-hash'
+            )
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+
+            await expect(
+                headOfTheCommunity.applyForElections(
+                    'program-short-version-ipfs-hash',
+                    'program-long-version-ipfs-hash'
+                )
+            ).to.be.revertedWithCustomError(electionsContract, 'AccountAlreadyAppliedForPreElection');
         })
     })
 })
