@@ -14,6 +14,8 @@ contract ChurchCommunity is IChurchCommunity {
     uint public constant NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT = 7;
     uint public constant CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = 3;
 
+    uint public constant MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS = 50;
+
     uint public immutable communityContractCreationDate;
     struct CommunityInfo {
         string websiteUrl;
@@ -54,6 +56,8 @@ contract ChurchCommunity is IChurchCommunity {
     error AdminDailyActivityLimitReached();
 
     error NewStateElectionAlreadyScheduled();
+
+    error YourChurchCommunityMembersSizeNotMakesYouEligibleToApplyElections();
 
     modifier onlyCitizen() {
         if (!accountsWithCitizenRole[msg.sender]) {
@@ -147,6 +151,13 @@ contract ChurchCommunity is IChurchCommunity {
         ).electionStartDate();
         if (stateElectionStartDate != 0) {
             revert NewStateElectionAlreadyScheduled();
+        }
+        _;
+    }
+
+    modifier aboveMinChurchCommunitySize() {
+        if (MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS > citizens.length) {
+            revert YourChurchCommunityMembersSizeNotMakesYouEligibleToApplyElections();
         }
         _;
     }
@@ -262,7 +273,7 @@ contract ChurchCommunity is IChurchCommunity {
     function applyForElections(
         string memory _programShortVersionIpfsHash,
         string memory _programLongVersionIpfsHash
-    ) public onlyHeadOfTheCommunity onlyAdminOnce {
+    ) public onlyHeadOfTheCommunity onlyAdminOnce aboveMinChurchCommunitySize {
         IElections(
             IChristianState(christianStateAddress).electionsContractAddress()
         ).applyForElection(

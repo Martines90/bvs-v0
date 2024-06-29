@@ -22,6 +22,8 @@ describe('ChurchCommunity - main', () => {
     let NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT: bigint;
     let CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT: bigint;
 
+    let MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS: bigint;
+
     let christianStateAdmin: ChristianState;
     let electionsAdmin: Elections;
     let contractCreationDate: bigint;
@@ -64,6 +66,8 @@ describe('ChurchCommunity - main', () => {
         NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT = await churchCommunityAdmin.NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT();
         CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = await churchCommunityAdmin.CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT();
 
+        MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS = await churchCommunityAdmin.MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS();
+
         // state constants
         S_MAIN_PRIO_REQUIRED_ADMIN_APPROVALS = await christianStateAdmin.MAIN_PRIO_REQUIRED_ADMIN_APPROVALS();
 
@@ -84,6 +88,18 @@ describe('ChurchCommunity - main', () => {
 
         await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
     }
+
+    const addCitizens = async (from: number = 1, to: number = Number(MIN_CHURCH_COMMUNITY_SIZE_TO_APPLY_ELECTIONS)) => {
+        let ct = 1;
+        for (let i = from; i < to; i++) {
+            if (ct % Number(MAX_DAILY_ADMIN_ACTIVITY) === 0) {
+                await time.increase((BigInt(TimeQuantities.DAY)));
+            }
+            await churchCommunityAdmin.registerCitizen(accounts[i].address);
+            ct++;
+        }
+        await time.increase((BigInt(TimeQuantities.DAY)));
+    }
     
     const executeNAdminAttemptsOnStateSetElectionsStartDateMethod = async (date: bigint, admins: SignerWithAddress[]) => {
         for (let i = 0; i < admins.length; i++) {
@@ -92,7 +108,6 @@ describe('ChurchCommunity - main', () => {
             await admin.setElectionStartDate(date);
         }
     }
-    
 
     describe("registerCitizen", () => {
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
@@ -239,6 +254,12 @@ describe('ChurchCommunity - main', () => {
     });
 
     describe("setHeadOfTheCommunity", () => {
+        it("should get reverted when account has no admin role", async () => {
+            await expect(
+                churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
+            ).to.be.revertedWithCustomError(churchCommunityContract, 'ProvidedAccountHasNoAdminRole');
+        })
+        
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
             const account1 = await churchCommunityContract.connect(accounts[1]);
 
@@ -267,12 +288,6 @@ describe('ChurchCommunity - main', () => {
             await expect(
                 churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
             ).to.be.revertedWithCustomError(churchCommunityContract, 'AdminDailyActivityLimitReached');
-        })
-
-        it("should get reverted when account has no admin role", async () => {
-            await expect(
-                churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
-            ).to.be.revertedWithCustomError(churchCommunityContract, 'ProvidedAccountHasNoAdminRole');
         })
 
         it("should properly set the head of the community", async () => {
@@ -365,6 +380,10 @@ describe('ChurchCommunity - main', () => {
             await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
 
             await churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
+
+            await time.increase((CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT * BigInt(TimeQuantities.DAY)));
+
+            await addCitizens();
         })
         it("should get reverted when Account is not the head of the community", async () => {
             await expect(
@@ -373,6 +392,20 @@ describe('ChurchCommunity - main', () => {
                     'program-long-version-ipfs-hash'
                 )
             ).to.be.revertedWithCustomError(churchCommunityContract, 'AccountIsNotTheHeadOfTheCommunity');
+        })
+
+        it("should revert when curch community size is below min limit", async () => {
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await churchCommunityAdmin.removeCitizen(accounts[2]);
+
+            await time.increase((BigInt(TimeQuantities.DAY) * NEW_ADMIN_FREEZE_ACTIVITY_DAY_COUNT));
+            
+            await expect(headOfTheCommunity.applyForElections(
+                'program-short-version-ipfs-hash',
+                'program-long-version-ipfs-hash'
+            )).to.be.revertedWithCustomError(churchCommunityContract, 'YourChurchCommunityMembersSizeNotMakesYouEligibleToApplyElections')
+
         })
 
         it("should get reverted when Church community is not approved by the state", async () => {
@@ -474,6 +507,35 @@ describe('ChurchCommunity - main', () => {
                     'program-long-version-ipfs-hash'
                 )
             ).to.be.revertedWithCustomError(electionsContract, 'AccountAlreadyAppliedForPreElection');
+        })
+
+        it("should succeed", async () => {
+            await addAdmins(christianStateAdmin, accounts, 1, 10);
+
+            const electionsStartDate = BigInt(FAR_FUTURE_DATE + TimeQuantities.YEAR);
+
+            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(electionsStartDate, accounts.slice(0, 10));
+
+
+            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+
+            const churchCommunityAddress = await churchCommunityAdmin.communityContractAddress();
+
+            await christianStateAdmin.registerChurchCommunity(churchCommunityAddress);
+
+            const headOfTheCommunity = await churchCommunityContract.connect(accounts[1]);
+
+            await time.increaseTo(electionsStartDate - E_PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS + BigInt(TimeQuantities.DAY));
+
+            assert.equal(await electionsAdmin.getPreElectionCanidateSize(), 0);
+
+            await headOfTheCommunity.applyForElections(
+                'program-short-version-ipfs-hash',
+                'program-long-version-ipfs-hash'
+            )
+
+            assert.equal(await electionsAdmin.getPreElectionCanidateSize(), 1);
+            assert.equal(await electionsAdmin.preElectionCandidateVoteScores(accounts[1]), 1)
         })
     })
 })

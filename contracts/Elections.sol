@@ -31,8 +31,8 @@ contract Elections is IElections {
     error PreElectionApplicationPeriodIsNotYetStarted();
     error PreElectionApplicationPeriodIsAlreadyFinished();
 
-    mapping(address => uint) preElectionCandidateVoteScores;
-    address[] preElectionCandidates;
+    mapping(address => uint) public preElectionCandidateVoteScores;
+    address[] public preElectionCandidates;
 
     uint public electionStartDate;
 
@@ -123,5 +123,9 @@ contract Elections is IElections {
             .programShortVersionIpfsHash = _programShortVersionIpfsHash;
         candidatesInfo[headOfTheChurchCommuntiyAccount]
             .programLongVersionIpfsHash = _programLongVersionIpfsHash;
+    }
+
+    function getPreElectionCanidateSize() public view returns (uint) {
+        return preElectionCandidates.length;
     }
 }
