@@ -283,6 +283,15 @@ contract ChurchCommunity is IChurchCommunity {
             );
     }
 
+    function voteOnPreElections(
+        address voterAccount,
+        address candidateAccount
+    ) public onlyCitizen {
+        IElections(
+            IChristianState(christianStateAddress).electionsContractAddress()
+        ).voteOnPreElections(voterAccount, candidateAccount);
+    }
+
     function getYear() public view returns (uint) {
         return (block.timestamp / 31557600) + 1970;
     }

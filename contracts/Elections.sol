@@ -31,8 +31,14 @@ contract Elections is IElections {
     error PreElectionApplicationPeriodIsNotYetStarted();
     error PreElectionApplicationPeriodIsAlreadyFinished();
 
+    error VoterAlreadyVotedOnPreElection();
+    error CandidateNotAppliedForPreElections();
+    error PreElectionPeriodIsNotOngoing();
+
     mapping(address => uint) public preElectionCandidateVoteScores;
     address[] public preElectionCandidates;
+
+    mapping(address => bool) public preElectionVotes;
 
     uint public electionStartDate;
 
@@ -94,6 +100,34 @@ contract Elections is IElections {
         _;
     }
 
+    modifier candidateAppliedForPreElection(address candidateAddress) {
+        if (preElectionCandidateVoteScores[candidateAddress] < 1) {
+            revert CandidateNotAppliedForPreElections();
+        }
+        _;
+    }
+
+    modifier voterNotVotedYetOnPreElection(address voterAddress) {
+        if (preElectionVotes[voterAddress]) {
+            revert VoterAlreadyVotedOnPreElection();
+        }
+        _;
+    }
+
+    modifier preElectionVotingPeriodIsOngoing() {
+        if (
+            electionStartDate -
+                PRE_ELECTIONS_ELECTIONS_GAP_DAYS -
+                PRE_ELECTIONS_VOTING_DAYS >
+            block.timestamp ||
+            electionStartDate - PRE_ELECTIONS_ELECTIONS_GAP_DAYS <
+            block.timestamp
+        ) {
+            revert PreElectionPeriodIsNotOngoing();
+        }
+        _;
+    }
+
     constructor() {
         contractAddress = address(this);
         stateAddress = msg.sender;
@@ -123,6 +157,19 @@ contract Elections is IElections {
             .programShortVersionIpfsHash = _programShortVersionIpfsHash;
         candidatesInfo[headOfTheChurchCommuntiyAccount]
             .programLongVersionIpfsHash = _programLongVersionIpfsHash;
+    }
+
+    function voteOnPreElections(
+        address voterAccount,
+        address candidateAccount
+    )
+        public
+        churchCommunityApprovedByState
+        candidateAppliedForPreElection(candidateAccount)
+        voterNotVotedYetOnPreElection(voterAccount)
+        preElectionVotingPeriodIsOngoing
+    {
+        preElectionCandidateVoteScores[candidateAccount] += 1;
     }
 
     function getPreElectionCanidateSize() public view returns (uint) {

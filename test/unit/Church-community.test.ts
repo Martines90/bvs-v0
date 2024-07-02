@@ -259,7 +259,7 @@ describe('ChurchCommunity - main', () => {
                 churchCommunityAdmin.setHeadOfTheCommunity(accounts[1])
             ).to.be.revertedWithCustomError(churchCommunityContract, 'ProvidedAccountHasNoAdminRole');
         })
-        
+
         it("should get reverted when Account is not an ADMINISTRATOR", async () => {
             const account1 = await churchCommunityContract.connect(accounts[1]);
 
@@ -269,11 +269,11 @@ describe('ChurchCommunity - main', () => {
         })
 
         it("should get reverted when state election already scheduled", async () => {
-            await christianStateAdmin.setElectionStartDate(FAR_FUTURE_DATE + TimeQuantities.YEAR);
+            await addAdmins(christianStateAdmin, accounts, 1, 10);
 
-            await churchCommunityAdmin.addAdmin(accounts[2])
+            const electionsStartDate = BigInt(FAR_FUTURE_DATE + TimeQuantities.YEAR);
 
-            await time.increase((BigInt(TimeQuantities.DAY) * CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT));
+            await executeNAdminAttemptsOnStateSetElectionsStartDateMethod(electionsStartDate, accounts.slice(0, 10));
 
             await expect(
                 churchCommunityAdmin.setHeadOfTheCommunity(accounts[2])
@@ -373,7 +373,7 @@ describe('ChurchCommunity - main', () => {
     
     */
 
-    describe.only("applyForElections", () => {
+    describe("applyForElections", () => {
         beforeEach(async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 

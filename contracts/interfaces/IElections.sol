@@ -8,6 +8,11 @@ interface IElections {
         string memory _programLongVersionIpfsHash
     ) external;
 
+    function voteOnPreElections(
+        address voterAccount,
+        address candidateAccount
+    ) external;
+
     function electionStartDate() external view returns (uint);
 
     function setElectionStartDate(uint startDate) external;
