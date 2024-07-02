@@ -8,7 +8,7 @@ interface IElections {
         string memory _programLongVersionIpfsHash
     ) external;
 
-    function voteOnPreElections(
+    function voteOnPreElection(
         address voterAccount,
         address candidateAccount
     ) external;

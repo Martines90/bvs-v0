@@ -194,14 +194,6 @@ contract ChurchCommunity is IChurchCommunity {
         IChristianState(christianStateAddress).voteOnVoting(votingKey, 100);
     }
 
-    function voteOnStatePreElection(
-        address candidateAccount
-    ) public onlyCitizen {
-        IChristianState(christianStateAddress).voteOnPreElection(
-            candidateAccount
-        );
-    }
-
     function voteOnStateElection(address candidateAccount) public onlyCitizen {
         IChristianState(christianStateAddress).voteOnElection(
             candidateAccount,
@@ -270,7 +262,7 @@ contract ChurchCommunity is IChurchCommunity {
         }
     }
 
-    function applyForElections(
+    function applyForStateElection(
         string memory _programShortVersionIpfsHash,
         string memory _programLongVersionIpfsHash
     ) public onlyHeadOfTheCommunity onlyAdminOnce aboveMinChurchCommunitySize {
@@ -283,13 +275,12 @@ contract ChurchCommunity is IChurchCommunity {
             );
     }
 
-    function voteOnPreElections(
-        address voterAccount,
+    function voteOnStatePreElection(
         address candidateAccount
     ) public onlyCitizen {
         IElections(
             IChristianState(christianStateAddress).electionsContractAddress()
-        ).voteOnPreElections(voterAccount, candidateAccount);
+        ).voteOnPreElection(msg.sender, candidateAccount);
     }
 
     function getYear() public view returns (uint) {

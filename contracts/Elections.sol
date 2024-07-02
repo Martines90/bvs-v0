@@ -32,7 +32,7 @@ contract Elections is IElections {
     error PreElectionApplicationPeriodIsAlreadyFinished();
 
     error VoterAlreadyVotedOnPreElection();
-    error CandidateNotAppliedForPreElections();
+    error CandidateNotAppliedForPreElection();
     error PreElectionPeriodIsNotOngoing();
 
     mapping(address => uint) public preElectionCandidateVoteScores;
@@ -83,18 +83,9 @@ contract Elections is IElections {
     }
 
     modifier preElectionApplicationPeriodIsOngoing() {
-        if (
-            electionStartDate -
-                PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS >
-            block.timestamp
-        ) {
+        if (getPreElectionApplicationStartDate() > block.timestamp) {
             revert PreElectionApplicationPeriodIsNotYetStarted();
-        } else if (
-            electionStartDate -
-                PRE_ELECTIONS_VOTING_DAYS -
-                PRE_ELECTIONS_ELECTIONS_GAP_DAYS <
-            block.timestamp
-        ) {
+        } else if (getPreElectionApplicationEndDate() < block.timestamp) {
             revert PreElectionApplicationPeriodIsAlreadyFinished();
         }
         _;
@@ -102,7 +93,7 @@ contract Elections is IElections {
 
     modifier candidateAppliedForPreElection(address candidateAddress) {
         if (preElectionCandidateVoteScores[candidateAddress] < 1) {
-            revert CandidateNotAppliedForPreElections();
+            revert CandidateNotAppliedForPreElection();
         }
         _;
     }
@@ -159,20 +150,35 @@ contract Elections is IElections {
             .programLongVersionIpfsHash = _programLongVersionIpfsHash;
     }
 
-    function voteOnPreElections(
+    function voteOnPreElection(
         address voterAccount,
         address candidateAccount
     )
         public
         churchCommunityApprovedByState
+        preElectionVotingPeriodIsOngoing
         candidateAppliedForPreElection(candidateAccount)
         voterNotVotedYetOnPreElection(voterAccount)
-        preElectionVotingPeriodIsOngoing
     {
         preElectionCandidateVoteScores[candidateAccount] += 1;
     }
 
     function getPreElectionCanidateSize() public view returns (uint) {
         return preElectionCandidates.length;
+    }
+
+    function getPreElectionApplicationStartDate() public view returns (uint) {
+        return
+            electionStartDate -
+            PRE_ELECTIONS_ELECTIONS_GAP_DAYS -
+            PRE_ELECTIONS_VOTING_DAYS -
+            PRE_ELECTION_REGISTRATION_STARTS_BEFORE_START_DAYS;
+    }
+
+    function getPreElectionApplicationEndDate() public view returns (uint) {
+        return
+            electionStartDate -
+            PRE_ELECTIONS_ELECTIONS_GAP_DAYS -
+            PRE_ELECTIONS_VOTING_DAYS;
     }
 }

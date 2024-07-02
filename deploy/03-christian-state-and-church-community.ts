@@ -8,17 +8,26 @@ const christianState = async function (hre: HardhatRuntimeEnvironment) {
 
     const christianState = await deploy("ChristianState", {
       from: deployer,
-        args: [1],
-        log: true,
-        waitConfirmations: 1,
+      args: [1],
+      log: true,
+      waitConfirmations: 1,
     })
 
-    const churchCommunity = await deploy("ChurchCommunity", {
-        from: deployer,
-          args: [christianState.address],
-          log: true,
-          waitConfirmations: 1,
-      })
+    const churchCommunity_1 = await deploy("ChurchCommunity_1", {
+      from: deployer,
+      contract: 'ChurchCommunity',
+      args: [christianState.address],
+      log: true,
+      waitConfirmations: 1,
+    })
+
+    const churchCommunity_2 = await deploy("ChurchCommunity_2", {
+      from: deployer,
+      contract: 'ChurchCommunity',
+      args: [christianState.address],
+      log: true,
+      waitConfirmations: 1,
+    })
 }
 
 export default christianState
