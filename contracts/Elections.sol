@@ -141,6 +141,7 @@ contract Elections is IElections {
     {
         preElectionCandidates.push(headOfTheChurchCommuntiyAccount);
         preElectionCandidateVoteScores[headOfTheChurchCommuntiyAccount] = 1;
+        preElectionVotes[headOfTheChurchCommuntiyAccount] = true;
 
         candidatesInfo[headOfTheChurchCommuntiyAccount]
             .churchCommunityAddress = msg.sender;
@@ -160,8 +161,13 @@ contract Elections is IElections {
         candidateAppliedForPreElection(candidateAccount)
         voterNotVotedYetOnPreElection(voterAccount)
     {
-        preElectionCandidateVoteScores[candidateAccount] += 1;
+        preElectionCandidateVoteScores[candidateAccount] += IChristianState(
+            stateAddress
+        ).getChurchCommunityTaxCategoryLevel(msg.sender);
+        preElectionVotes[voterAccount] = true;
     }
+
+    function closePreElection() public churchCommunityApprovedByState {}
 
     function getPreElectionCanidateSize() public view returns (uint) {
         return preElectionCandidates.length;

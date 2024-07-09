@@ -376,7 +376,7 @@ describe('ChurchCommunity - main', () => {
         })
     })
 
-    describe("applyForStateElection", () => {
+    describe.only("applyForStateElection", () => {
         beforeEach(async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
@@ -531,10 +531,11 @@ describe('ChurchCommunity - main', () => {
 
             assert.equal(await electionsAdmin.getPreElectionCanidateSize(), 1);
             assert.equal(await electionsAdmin.preElectionCandidateVoteScores(accounts[1]), 1)
+            assert.equal(await electionsAdmin.preElectionVotes(accounts[1]), true);
         })
     })
 
-    describe.only("voteOnPreElection", () => {
+    describe("voteOnStatePreElection", () => {
         beforeEach(async () => {
             await churchCommunityAdmin.addAdmin(accounts[1]);
 
@@ -587,7 +588,7 @@ describe('ChurchCommunity - main', () => {
 
         it("should get reverted when candidate not applied for pre election", async () => {
             await time.increaseTo(preElectionStartDate + BigInt(TimeQuantities.DAY));
-            
+
             await expect(
                 churchCommunityAdmin.voteOnStatePreElection(accounts[2])
             ).to.be.revertedWithCustomError(electionsContract, 'CandidateNotAppliedForPreElection');
@@ -613,8 +614,17 @@ describe('ChurchCommunity - main', () => {
             await churchCommunityAdmin.voteOnStatePreElection(accounts[1])
 
             await expect(
-                churchCommunityAdmin.voteOnStatePreElection(accounts[2])
-            ).to.be.revertedWithCustomError(electionsContract, 'CandidateNotAppliedForPreElection');
+                churchCommunityAdmin.voteOnStatePreElection(accounts[1])
+            ).to.be.revertedWithCustomError(electionsContract, 'VoterAlreadyVotedOnPreElection');
+        })
+
+        it("should succeed", async () => {
+            await time.increaseTo(preElectionStartDate + BigInt(TimeQuantities.DAY));
+
+            expect(await churchCommunityAdmin.voteOnStatePreElection(accounts[1])).not.to.be.reverted
+
+            assert.equal(await electionsAdmin.preElectionCandidateVoteScores(accounts[1]), BigInt(2));
+            assert.equal(await electionsAdmin.preElectionVotes(accounts[0]), true);
         })
     })
 })

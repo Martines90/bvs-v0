@@ -8,7 +8,7 @@ const christianState = async function (hre: HardhatRuntimeEnvironment) {
 
     const christianState = await deploy("ChristianState", {
       from: deployer,
-      args: [1],
+      args: [],
       log: true,
       waitConfirmations: 1,
     })

@@ -195,10 +195,9 @@ contract ChurchCommunity is IChurchCommunity {
     }
 
     function voteOnStateElection(address candidateAccount) public onlyCitizen {
-        IChristianState(christianStateAddress).voteOnElection(
-            candidateAccount,
-            100
-        );
+        IElections(
+            IChristianState(christianStateAddress).electionsContractAddress()
+        ).voteOnPreElection(msg.sender, candidateAccount);
     }
 
     function registerCitizen(

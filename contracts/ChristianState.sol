@@ -9,7 +9,7 @@ contract ChristianState is IChristianState {
     // to add:
     // mapping(string => bool) public acceptedWebsites;
 
-    uint immutable level;
+    // uint immutable level; FUTURE development idea: add levels to states and higher / lower states can interact with eachother
     address public immutable electionsContractAddress;
     uint public MAX_DAILY_ADMIN_ACTIVITY = 10;
     uint public constant CRITICAL_ADMIN_ACTIVITY_FREEZE_DAY_COUNT = 3;
@@ -21,6 +21,8 @@ contract ChristianState is IChristianState {
     string public cryptoCurrency = "ETH";
     address public cryptoWalletAddress;
 
+    uint[] annualTaxLevelVolumesPerCapita;
+
     uint ethUsdExchangeUnit = 3584;
 
     string public bankName;
@@ -31,7 +33,8 @@ contract ChristianState is IChristianState {
 
     uint public electionStartDate;
     uint public immutable stateContractCreationDate;
-    mapping(address => mapping(uint => uint)) public annualTotalPayments;
+    mapping(address => mapping(uint => uint))
+        public annualTotalPaymentsOfChurchCommunities;
     mapping(address => uint) public totalPayments;
 
     mapping(string => mapping(uint => uint))
@@ -41,8 +44,6 @@ contract ChristianState is IChristianState {
     address[] churchCommunities;
     address[] blockedChurchCommunities;
 
-    mapping(address => uint) public preElectionScores;
-    mapping(address => uint) public electionScores;
     mapping(bytes32 => uint) public votingScores;
     mapping(address => bool) public accountsWithAdminRole;
     mapping(address => bool) public accountsWithRepresentativeRole;
@@ -118,12 +119,16 @@ contract ChristianState is IChristianState {
         _;
     }
 
-    constructor(uint _level) {
+    constructor() {
         electionsContractAddress = address(new Elections());
-        level = _level;
         stateContractCreationDate = block.timestamp;
         accountsWithAdminRole[msg.sender] = true;
         admins.push(msg.sender);
+
+        annualTaxLevelVolumesPerCapita.push(100);
+        annualTaxLevelVolumesPerCapita.push(1000);
+        annualTaxLevelVolumesPerCapita.push(2000);
+        annualTaxLevelVolumesPerCapita.push(10000);
     }
 
     function addAdmin(address accountAddress) public onlyAdminOnce {
@@ -151,19 +156,6 @@ contract ChristianState is IChristianState {
         return acceptedChurchCommunities[churchCommunityAddress];
     }
 
-    function voteOnPreElection(
-        address candidateAccount
-    ) external onlyAcceptedChurchCommunity(msg.sender) {
-        preElectionScores[candidateAccount] += 1;
-    }
-
-    function voteOnElection(
-        address candidateAccount,
-        uint voteScore
-    ) external onlyAcceptedChurchCommunity(msg.sender) {
-        electionScores[candidateAccount] += voteScore;
-    }
-
     function voteOnVoting(
         bytes32 votingKey,
         uint votingScore
@@ -175,7 +167,9 @@ contract ChristianState is IChristianState {
         address curchCommunityAddress,
         uint amount
     ) public onlyAdmin onlyAcceptedChurchCommunity(curchCommunityAddress) {
-        annualTotalPayments[curchCommunityAddress][getYear()] = amount;
+        annualTotalPaymentsOfChurchCommunities[curchCommunityAddress][
+            getYear()
+        ] = amount;
     }
 
     function registerChurchCommunity(
@@ -233,6 +227,61 @@ contract ChristianState is IChristianState {
     ) public onlyAdmin {
         commonInfo[key] = value;
         commonInfoKeys.push(key);
+    }
+
+    function getChurchCommunityTaxCategoryLevel(
+        address churchCommunityAddress
+    ) public view returns (uint) {
+        uint numOfCitizensOfTheChurchCommunity = IChurchCommunity(
+            churchCommunityAddress
+        ).getCitizensSize();
+
+        uint latestPayedAnnualTaxPerCapita = getLatestPayedTotalAnnualTaxByChurchCommunity(
+                churchCommunityAddress
+            ) / numOfCitizensOfTheChurchCommunity;
+        uint taxLevelRelatedValue = 0;
+        for (uint i = 0; i < annualTaxLevelVolumesPerCapita.length; i++) {
+            if (
+                latestPayedAnnualTaxPerCapita <
+                annualTaxLevelVolumesPerCapita[i]
+            ) {
+                taxLevelRelatedValue = i;
+                break;
+            }
+        }
+
+        if (
+            latestPayedAnnualTaxPerCapita >
+            annualTaxLevelVolumesPerCapita[
+                annualTaxLevelVolumesPerCapita.length - 1
+            ]
+        ) {
+            taxLevelRelatedValue = annualTaxLevelVolumesPerCapita.length - 1;
+        }
+        return taxLevelRelatedValue;
+    }
+
+    function updateAnnualTaxLevelPerCapitaValue(
+        uint level,
+        uint value
+    ) public onlyAdminOnce {
+        annualTaxLevelVolumesPerCapita[level] = value;
+    }
+
+    function getLatestPayedTotalAnnualTaxByChurchCommunity(
+        address churchCommunityAddress
+    ) public view returns (uint) {
+        if (((block.timestamp - 30 days) / 31557600) + 1970 < getYear()) {
+            return
+                annualTotalPaymentsOfChurchCommunities[churchCommunityAddress][
+                    getYear() - 1
+                ];
+        } else {
+            return
+                annualTotalPaymentsOfChurchCommunities[churchCommunityAddress][
+                    getYear()
+                ];
+        }
     }
 
     function getYear() public view returns (uint) {
